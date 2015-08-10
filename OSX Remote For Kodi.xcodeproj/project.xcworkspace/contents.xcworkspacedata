@@ -4,4 +4,7 @@
    <FileRef
       location = "self:OSX Remote For Kodi.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:../../SocketRocket-master/SocketRocket.xcodeproj">
+   </FileRef>
 </Workspace>

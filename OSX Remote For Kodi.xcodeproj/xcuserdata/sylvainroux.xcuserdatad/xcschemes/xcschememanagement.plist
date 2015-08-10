@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SchemeUserState</key>
+	<dict>
+		<key>NCWidget Remote For Kodi.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>7</integer>
+		</dict>
+		<key>OSX Remote For Kodi.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>1</integer>
+		</dict>
+		<key>Remote For Kodi.xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>8</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>BC2B1F0A1B78D98300F15764</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>BCA0C4F21B77B437003D6F45</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>BCA0C5081B77B437003D6F45</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>BCA0C51C1B77B82A003D6F45</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>BCD94E1C1B791D6D003C8481</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+	</dict>
+</dict>
+</plist>
