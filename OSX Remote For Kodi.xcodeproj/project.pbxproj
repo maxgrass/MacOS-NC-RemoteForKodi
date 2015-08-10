@@ -13,6 +13,8 @@
 		BCA0C5011B77B437003D6F45 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BCA0C5001B77B437003D6F45 /* Images.xcassets */; };
 		BCA0C5041B77B437003D6F45 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BCA0C5021B77B437003D6F45 /* Main.storyboard */; };
 		BCA0C5101B77B437003D6F45 /* OSX_Remote_For_KodiTests.m in Sources */ = {isa = PBXBuildFile; fileRef = BCA0C50F1B77B437003D6F45 /* OSX_Remote_For_KodiTests.m */; };
+		BCB564541B7924360062B31D /* LICENCE in Resources */ = {isa = PBXBuildFile; fileRef = BCB564531B7924360062B31D /* LICENCE */; };
+		BCB564561B7924520062B31D /* README.md in Sources */ = {isa = PBXBuildFile; fileRef = BCB564551B7924520062B31D /* README.md */; };
 		BCD94E1E1B791D6E003C8481 /* NotificationCenter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCA0C51F1B77B82A003D6F45 /* NotificationCenter.framework */; };
 		BCD94E251B791D6E003C8481 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCD94E231B791D6E003C8481 /* InfoPlist.strings */; };
 		BCD94E281B791D6E003C8481 /* TodayViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = BCD94E271B791D6E003C8481 /* TodayViewController.m */; };
@@ -81,6 +83,8 @@
 		BCA0C50E1B77B437003D6F45 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BCA0C50F1B77B437003D6F45 /* OSX_Remote_For_KodiTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OSX_Remote_For_KodiTests.m; sourceTree = "<group>"; };
 		BCA0C51F1B77B82A003D6F45 /* NotificationCenter.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NotificationCenter.framework; path = System/Library/Frameworks/NotificationCenter.framework; sourceTree = SDKROOT; };
+		BCB564531B7924360062B31D /* LICENCE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENCE; sourceTree = "<group>"; };
+		BCB564551B7924520062B31D /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		BCD94E1D1B791D6D003C8481 /* Remote For Kodi.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Remote For Kodi.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BCD94E211B791D6E003C8481 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BCD94E221B791D6E003C8481 /* Remote_For_Kodi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Remote_For_Kodi.entitlements; sourceTree = "<group>"; };
@@ -123,6 +127,8 @@
 		BCA0C4EA1B77B437003D6F45 = {
 			isa = PBXGroup;
 			children = (
+				BCB564551B7924520062B31D /* README.md */,
+				BCB564531B7924360062B31D /* LICENCE */,
 				BCA0C4F51B77B437003D6F45 /* OSX Remote For Kodi */,
 				BCA0C50C1B77B437003D6F45 /* OSX Remote For KodiTests */,
 				BCD94E1F1B791D6E003C8481 /* Remote For Kodi */,
@@ -325,6 +331,7 @@
 			files = (
 				BCA0C5011B77B437003D6F45 /* Images.xcassets in Resources */,
 				BCA0C5041B77B437003D6F45 /* Main.storyboard in Resources */,
+				BCB564541B7924360062B31D /* LICENCE in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -354,6 +361,7 @@
 			files = (
 				BCA0C4FF1B77B437003D6F45 /* ViewController.m in Sources */,
 				BCA0C4FC1B77B437003D6F45 /* main.m in Sources */,
+				BCB564561B7924520062B31D /* README.md in Sources */,
 				BCA0C4FA1B77B437003D6F45 /* AppDelegate.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -630,6 +638,7 @@
 				BCD94E301B791D6E003C8481 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
