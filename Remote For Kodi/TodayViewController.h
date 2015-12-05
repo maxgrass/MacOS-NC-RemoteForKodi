@@ -22,6 +22,8 @@
 }
 
 @property (strong) IBOutlet NSView *mainView;
+@property (strong) IBOutlet NSView *playerView;
+@property (strong) IBOutlet NSView *textView;
 @property (strong) IBOutlet NSView *settingsView;
 
 @property (weak) IBOutlet NSButton *goleftButton;
@@ -36,11 +38,16 @@
 
 @property (weak) IBOutlet NSButton *stopButton;
 @property (weak) IBOutlet NSButton *playButton;
-@property (weak) IBOutlet NSButton *nextPlaylistItemButton;
+@property (weak) IBOutlet NSButton *forwardButton;
 
 @property (weak) IBOutlet NSSlider *playerProgressBar;
 @property (weak) IBOutlet NSSlider *volumeLevel;
 @property (weak) IBOutlet NSSlider *speedLevel;
+
+@property (weak) IBOutlet NSButton *nextPlaylistItemButton;
+@property (weak) IBOutlet NSPopUpButtonCell *playlistCombo;
+
+@property (weak) IBOutlet NSTextField *inputTextTextField;
 
 @property (weak) IBOutlet NSTextField *hostAddress;
 @property (weak) IBOutlet NSTextField *port;
