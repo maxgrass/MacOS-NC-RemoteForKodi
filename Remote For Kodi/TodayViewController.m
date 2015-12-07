@@ -536,6 +536,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         for(NSDictionary *playlistItem in p_playlistItems) {
             if([[playlistItem valueForKey:@"label"] rangeOfString:itemLabel].length)
                 break;
+            else if([[playlistItem valueForKey:@"label"] length] == 0)
+                break;
             currentItemId++;
         }
         [self.playlistCombo selectItemAtIndex:currentItemId];

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="7706" systemVersion="14D136" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="9060" systemVersion="15B42" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="7706"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="9060"/>
     </dependencies>
     <scenes>
         <!--Application-->
@@ -93,6 +93,7 @@
                         <subviews>
                             <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="e9U-oB-RKb">
                                 <rect key="frame" x="70" y="59" width="392" height="85"/>
+                                <animations/>
                                 <textFieldCell key="cell" sendsActionOnEndEditing="YES" id="UpS-Th-Jly">
                                     <font key="font" metaFont="system"/>
                                     <string key="title">Remote For Kodi has been added to the list of available widgets in your notification center. You may now make it active by opening the notification center, then selecting the Today tab and clic on the Edit button. You may also put this App into your application folder.</string>
@@ -102,6 +103,7 @@
                             </textField>
                             <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="bse-as-g2M">
                                 <rect key="frame" x="29" y="112" width="32" height="32"/>
+                                <animations/>
                                 <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="NSInfo" id="pXL-MS-zaP"/>
                             </imageView>
                             <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="uAP-Vd-3UC">
@@ -109,6 +111,7 @@
                                 <constraints>
                                     <constraint firstAttribute="width" constant="91" id="WAe-1T-LzE"/>
                                 </constraints>
+                                <animations/>
                                 <buttonCell key="cell" type="squareTextured" title="OK" bezelStyle="texturedSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="sDV-DF-BJW">
                                     <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                     <font key="font" metaFont="system"/>
@@ -127,6 +130,7 @@
                             <constraint firstAttribute="bottom" secondItem="uAP-Vd-3UC" secondAttribute="bottom" constant="20" symbolic="YES" id="oZm-RR-daY"/>
                             <constraint firstItem="uAP-Vd-3UC" firstAttribute="centerX" secondItem="m2S-Jp-Qdl" secondAttribute="centerX" id="pB1-jS-ZAM"/>
                         </constraints>
+                        <animations/>
                     </view>
                 </viewController>
                 <customObject id="rPt-NT-nkU" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
