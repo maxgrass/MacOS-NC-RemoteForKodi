@@ -31,6 +31,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 @interface TodayViewController () <NCWidgetProviding, SRWebSocketDelegate> {
     BOOL p_scheduleUpdate;
     NSInteger p_playerid;
+    double p_volumeLevel;
     KeyboardBehaviour p_keyboardBehaviour;
     NSMutableString *p_inputString;
     NSUInteger p_inputStringPos;
@@ -53,10 +54,10 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         self.widgetAllowsEditing = YES;
         p_scheduleUpdate = NO;
         p_keyboardBehaviour = command;
+        p_playerid = -1;
         [self loadSettings];
         [self loadControlState];
         self.preferredContentSize = CGSizeMake(0, 93);
-//        [self connectToKodi];
     }
     return self;
 }
@@ -187,7 +188,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
             NSArray *method = [message valueForKey:@"method"];
             NSArray *params = [message valueForKey:@"params"];
             if([method isEqualTo:@"Player.OnPlay"]) {
-                [self handlePlayerOnPlay];
+                [self handlePlayerOnPlay:params];
             }
             else if([method isEqualTo:@"Player.OnPause"]) {
                 [self handlePlayerOnPause];
@@ -202,7 +203,10 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
                 [self handleInputOnInputFinished];
             }
             else if([method isEqualTo:@"Playlist.OnAdd"]) {
-                [self handlePlaylistOnAdd];
+                [self handlePlaylistOnAdd:params];
+            }
+            else if([method isEqualTo:@"Application.OnVolumeChanged"]) {
+                [self handleApplicationOnVolumeChanged:params];
             }
         }
     }
@@ -386,6 +390,18 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self remoteRequest:request];
 }
 
+- (IBAction)sendApplicationSetVolumeIncrement:(id)sender {
+    //Application.SetVolume p_volumeLevel+5
+    NSString *request = [NSString stringWithFormat:@"{\"jsonrpc\":\"2.0\",\"method\":\"Application.SetVolume\",\"params\":{\"volume\":%i},\"id\":0}", (int)p_volumeLevel+5];
+    [self remoteRequest:request];
+}
+
+- (IBAction)sendApplicationSetVolumeDecrement:(id)sender {
+    //Application.SetVolume p_volumeLevel-5
+    NSString *request = [NSString stringWithFormat:@"{\"jsonrpc\":\"2.0\",\"method\":\"Application.SetVolume\",\"params\":{\"volume\":%i},\"id\":0}", (int)p_volumeLevel-5];
+    [self remoteRequest:request];
+}
+
 - (IBAction)sendPlayerSeek:(id)sender {
     //Player.Seek
     NSString *request = [NSString stringWithFormat:@"{\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":%i},\"id\":0}", p_playerid, self.playerProgressBar.intValue];
@@ -395,6 +411,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 - (IBAction)sendPlayerSeekForward:(id)sender {
     //Player.Seek
     NSString *request = [NSString stringWithFormat:@"{\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":\"smallforward\"},\"id\":0}", p_playerid];
+    [self remoteRequest:request];
+}
+
+- (IBAction)sendPlayerSeekBackward:(id)sender {
+    //Player.Seek
+    NSString *request = [NSString stringWithFormat:@"{\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":\"smallbackward\"},\"id\":0}", p_playerid];
     [self remoteRequest:request];
 }
 
@@ -461,7 +483,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (IBAction)requestPlayerGetProperties:(id)sender {
     //Player.GetProperties
-    if (!p_playerid) return;
+    if (p_playerid == -1) return;
     NSString *request = [NSString stringWithFormat:@"{\"jsonrpc\":\"2.0\",\"method\":\"Player.GetProperties\",\"params\":{\"playerid\":%ld,\"properties\":[\"percentage\",\"speed\"]},\"id\":1}", p_playerid];
     [self remoteRequest:request];
 }
@@ -491,37 +513,38 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self handlePlayerOnStop];
 }
 
-- (void)handleApplicationVolume:(NSArray*)result {
+- (void)handleApplicationVolume:(NSArray*)params {
     //Response to Application.GetProperties
-    [self.volumeLevel setDoubleValue:[[result valueForKey:@"volume"] doubleValue]];
+    p_volumeLevel = [[params valueForKey:@"volume"] doubleValue];
+    [self.volumeLevel setDoubleValue:p_volumeLevel];
 }
 
-- (void)handlePlayerGetProperties:(NSArray*)result {
+- (void)handlePlayerGetProperties:(NSArray*)params {
     //Response to Player.GetProperties
     [self setEnabledPlayerControls:YES];
     
     //update progressbar
     [self.playerProgressBar setEnabled:YES];
-    [self.playerProgressBar setDoubleValue:[[result valueForKey:@"percentage"] doubleValue]];
+    [self.playerProgressBar setDoubleValue:[[params valueForKey:@"percentage"] doubleValue]];
     
-    if([[result valueForKey:@"speed"] integerValue] == 0)
+    if([[params valueForKey:@"speed"] integerValue] == 0)
         [self.playButton setImage:[NSImage imageNamed:@"play"]];
     else
         [self.playButton setImage:[NSImage imageNamed:@"pause"]];
 }
 
-- (void)handlePlaylistGetItems:(NSArray*)result {
+- (void)handlePlaylistGetItems:(NSArray*)params {
     //Response to Playlist.GetItems
-    p_playlistItems = [result valueForKey:@"items"];
+    p_playlistItems = [params valueForKey:@"items"];
     [self requestPlayerGetItem:self];
 }
 
-- (void)handlePlayerGetItem:(NSArray*)result {
+- (void)handlePlayerGetItem:(NSArray*)params {
     //Response to Player.GetItem
     NSString *itemLabel;
     [self.playlistCombo removeAllItems];
     //item playing curently
-    itemLabel = [[result valueForKey:@"item"] valueForKey:@"label"];
+    itemLabel = [[params valueForKey:@"item"] valueForKey:@"label"];
     if(p_playlistItems) {
         int currentItemId = 0;
         for (NSDictionary *playListItem in p_playlistItems) {
@@ -552,12 +575,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 }
 
-- (void)handlePlayerGetActivePlayers:(NSArray*)result {
+- (void)handlePlayerGetActivePlayers:(NSArray*)params {
     //Response to Player.GetItem
-    if([result count] == 0) return;
+    if([params count] == 0) return;
     
     NSInteger oldPlayerId = p_playerid;
-    p_playerid = [[[result firstObject] valueForKey:@"playerid"] integerValue];
+    p_playerid = [[[params firstObject] valueForKey:@"playerid"] integerValue];
     
     if(p_playerid != oldPlayerId)
         [self requestPlaylistGetItems:self];
@@ -581,7 +604,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self requestPlayerGetActivePlayers:self];
 }
 
-- (void)handlePlayerOnPlay {
+- (void)handlePlayerOnPlay:(NSArray*)params {
+    p_playerid = [[[[params valueForKey:@"data"] valueForKey:@"player"] valueForKey:@"playerid"] integerValue];
     [self setEnabledPlayerControls:YES];
     [self requestPlayerGetActivePlayers:self];
     [self requestPlaylistGetItems:self];
@@ -592,7 +616,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)handlePlayerOnStop {
     [self setEnabledPlayerControls:NO];
-    p_playerid = 0;
+    p_playerid = -1;
+    p_scheduleUpdate = NO;
     [NSTimer scheduledTimerWithTimeInterval:3.0
                                      target:self
                                    selector:@selector(handlePlayerOnStop_scheduled:)
@@ -602,7 +627,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)handlePlayerOnStop_scheduled:(NSTimer *)timer {
     if(!timer) return;
-    if(p_playerid == 0) {
+    if(p_playerid == -1) {
         [self setEnabledPlaylistControls:NO];
         [self.playlistCombo removeAllItems];
         p_playlistItems = nil;
@@ -624,10 +649,11 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self.playerView setHidden:NO];
 }
 
-- (void)handlePlaylistOnAdd {
+- (void)handlePlaylistOnAdd:(NSArray*)params {
     //scheduled to handle multiple onAdd in a short delay without requesting the full playing for each.
     p_lastPlaylistAdd = [NSDate date];
     NSDate *now = [p_playlistItems copy];
+    p_playerid = [[[params valueForKey:@"data"] valueForKey:@"playlistid"] integerValue];
     [NSTimer scheduledTimerWithTimeInterval:0.1
                                      target:self
                                    selector:@selector(handlePlaylistOnAdd_scheduled:)
@@ -640,6 +666,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     if([p_lastPlaylistAdd isEqualToDate:(NSDate *)timer.userInfo])
         [self requestPlaylistGetItems:self];
 }
+
+- (void)handleApplicationOnVolumeChanged:(NSArray*)params {
+    p_volumeLevel = [[[params valueForKey:@"data"] valueForKey:@"volume"] doubleValue];
+    [self.volumeLevel setIntegerValue:(NSInteger)p_volumeLevel];
+}
+
 
 
 /***** View helpers *****/
@@ -774,8 +806,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         case 3: // f key
             [self sendPlayerSeekForward:self];
             break;
-        case 12: // q key
-            [self setEnabledPlaylistControls:YES];
+        case 11: // b key
+            [self sendPlayerSeekBackward:self];
             break;
         case 4:  // h key
             [self sendInputHome:self];
@@ -802,16 +834,28 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
             [self sendInputExecuteActionBack:self];
             break;
         case 123: // left key
-            [self sendInputLeft:self];
+            if(event.modifierFlags & NSShiftKeyMask)
+                [self sendPlayerSeekBackward:self];
+            else
+                [self sendInputLeft:self];
             break;
         case 124: // right key
-            [self sendInputRight:self];
+            if(event.modifierFlags & NSShiftKeyMask)
+                [self sendPlayerSeekForward:self];
+            else
+                [self sendInputRight:self];
             break;
         case 125: // down key
-            [self sendInputDown:self];
+            if(event.modifierFlags & NSShiftKeyMask)
+                [self sendApplicationSetVolumeDecrement:self];
+            else
+                [self sendInputDown:self];
             break;
         case 126: // up key
-            [self sendInputUp:self];
+            if(event.modifierFlags & NSShiftKeyMask)
+                [self sendApplicationSetVolumeIncrement:self];
+            else
+                [self sendInputUp:self];
             break;
         default:
             break;
