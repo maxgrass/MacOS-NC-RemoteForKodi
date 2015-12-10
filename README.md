@@ -8,6 +8,11 @@
   <a href="https://www.dropbox.com/s/txt5f1u1xejiz88/OSX%20Remote%20For%20Kodi.dmg?dl=0">Download the dmg containing the app</a><br/>
   <a href="https://github.com/SylvainRoux/OS-X-Remote-For-Kodi/">Get the code</a><br/>
 </p>
+<p>
+  Screenshots :<br/>
+  <a>https://www.dropbox.com/s/aw8t0l8u6ogvacn/osxremoteforkodi_vue1.png?dl=0</a><br/> 
+  <a>https://www.dropbox.com/s/0u3ucyrjxrswdjk/osxremoteforkodi_vue2.png?dl=0</a><br/>
+</p>
 
 List of keyboard commands :
 <table>
