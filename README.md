@@ -28,6 +28,8 @@ List of keyboard commands :
   <tr><td>space</td><td>pause</td></tr>
   <tr><td>f / shift+left</td><td>forward player progress</td></tr>
   <tr><td>b / shift+right</td><td>backward player progress</td></tr>
+  <tr><td>f / shift+down</td><td>volume down</td></tr>
+  <tr><td>b / shift+up</td><td>volume up</td></tr>
   <tr><td>p</td><td>play previous item in playlist</td></tr>
   <tr><td>n</td><td>play next item in playlist</td></tr>
 </table>
