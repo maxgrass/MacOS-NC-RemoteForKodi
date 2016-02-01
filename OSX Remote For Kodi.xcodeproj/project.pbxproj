@@ -68,6 +68,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		BC0819DC1C51775A00884B3E /* OSX Remote For Kodi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "OSX Remote For Kodi.entitlements"; sourceTree = "<group>"; };
 		BC2B1F2A1B78E63900F15764 /* libSocketRocket.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSocketRocket.a; path = "../../../Library/Developer/Xcode/DerivedData/OSX_Remote_For_Kodi-btjfqerzbehbzacoxqjzhbzhbjdf/Build/Products/Debug/libSocketRocket.a"; sourceTree = "<group>"; };
 		BC2B1F2B1B78E63900F15764 /* SocketRocket.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SocketRocket.framework; path = "../../../Library/Developer/Xcode/DerivedData/OSX_Remote_For_Kodi-btjfqerzbehbzacoxqjzhbzhbjdf/Build/Products/Debug/SocketRocket.framework"; sourceTree = "<group>"; };
 		BCA0C4F31B77B437003D6F45 /* OSX Remote For Kodi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "OSX Remote For Kodi.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -150,6 +151,7 @@
 		BCA0C4F51B77B437003D6F45 /* OSX Remote For Kodi */ = {
 			isa = PBXGroup;
 			children = (
+				BC0819DC1C51775A00884B3E /* OSX Remote For Kodi.entitlements */,
 				BCA0C4F81B77B437003D6F45 /* AppDelegate.h */,
 				BCA0C4F91B77B437003D6F45 /* AppDelegate.m */,
 				BCA0C4FD1B77B437003D6F45 /* ViewController.h */,
@@ -289,6 +291,11 @@
 				TargetAttributes = {
 					BCA0C4F21B77B437003D6F45 = {
 						CreatedOnToolsVersion = 6.4;
+						SystemCapabilities = {
+							com.apple.Sandbox = {
+								enabled = 1;
+							};
+						};
 					};
 					BCA0C5081B77B437003D6F45 = {
 						CreatedOnToolsVersion = 6.4;
@@ -501,6 +508,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "OSX Remote For Kodi/OSX Remote For Kodi.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "OSX Remote For Kodi/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
@@ -512,6 +520,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "OSX Remote For Kodi/OSX Remote For Kodi.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "OSX Remote For Kodi/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";

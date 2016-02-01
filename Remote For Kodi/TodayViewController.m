@@ -29,6 +29,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 
 @interface TodayViewController () <NCWidgetProviding, SRWebSocketDelegate> {
+    NSString *p_hostAddress;
+    NSString *p_port;
     BOOL p_scheduleUpdate;
     NSInteger p_playerid;
     double p_volumeLevel;
@@ -74,6 +76,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 }
 
 - (void)fixDefaultsIfNeeded {
+    //http://stackoverflow.com/questions/22242106/mac-sandbox-created-but-no-nsuserdefaults-plist
     NSArray *domains = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory,NSUserDomainMask,YES);
     //File should be in library
     NSString *libraryPath = [domains firstObject];
@@ -101,21 +104,30 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 }
 
 - (void)saveSettings {
+    [self fixDefaultsIfNeeded];
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
     [shared setObject:self.hostAddress.stringValue forKey:@"host"];
     [shared setObject:self.port.stringValue forKey:@"port"];
     [shared synchronize];
-//    NSLog( @"%@", [[NSUserDefaults standardUserDefaults] dictionaryRepresentation] );
+    p_hostAddress = self.hostAddress.stringValue;
+    p_port = self.port.stringValue;
 }
 
 - (void)loadSettings {
+    [self fixDefaultsIfNeeded];
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
-    NSString *d_hostAddress = [shared objectForKey:@"host"];
-    NSString *d_port = [shared objectForKey:@"port"];
-    if(d_hostAddress != nil) [self.hostAddress setStringValue:d_hostAddress];
-    else [self.hostAddress setStringValue:DEFAULT_ADDRESS];
-    if(d_port != nil) [self.port setStringValue:d_port];
-    else [self.port setStringValue:DEFAULT_PORT];
+    if(p_hostAddress != nil) [self.hostAddress setStringValue:p_hostAddress];
+    else {
+        NSString *savedHostAddress = [shared objectForKey:@"host"];
+        if(savedHostAddress != nil)[self.hostAddress setStringValue:savedHostAddress];
+        else [self.hostAddress setStringValue:DEFAULT_ADDRESS];
+    }
+    if(p_port != nil) [self.port setStringValue:p_port];
+    else {
+        NSString *savedPortAddress = [shared objectForKey:@"port"];
+        if(savedPortAddress != nil)[self.port setStringValue:savedPortAddress];
+        else [self.port setStringValue:DEFAULT_PORT];
+    }
 }
 
 - (void)saveControlState {
@@ -127,7 +139,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 }
 
 - (void)loadControlState {
-    NSString *d_keyboardBehaviour = [[NSUserDefaults standardUserDefaults] objectForKey:@"keyboardBehaviour"];
+//    NSString *d_keyboardBehaviour = [[NSUserDefaults standardUserDefaults] objectForKey:@"keyboardBehaviour"];
 //    if(d_keyboardBehaviour != nil)
 //        p_keyboardBehaviour = [d_keyboardBehaviour intValue];
 }
@@ -138,6 +150,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 - (void)viewDidAppear {
     [self setEnabledPlayerControls:NO];
     [self connectToKodi];
+    [self setEnabledInterface:NO];
 }
 
 - (void)viewDidDisappear {
@@ -149,6 +162,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 - (void)widgetDidBeginEditing {
     [p_socket close];
     [self.mainView setHidden:YES];
+    [self setEnabledPlaylistControls:NO];
     [self.settingsView setHidden:NO];
     [self loadSettings];
     [self.view.window makeFirstResponder:self.hostAddress];
@@ -156,8 +170,9 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)widgetDidEndEditing {
     [self saveSettings];
-    [self loadSettings];
     [self.mainView setHidden:NO];
+    if(p_playlistItems && [p_playlistItems count] > 1)
+        [self setEnabledPlaylistControls:YES];
     [self.settingsView setHidden:YES];
     [self.view.window makeFirstResponder:self.view];
     [self connectToKodi];
@@ -172,35 +187,39 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     }
     
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
-    NSString *d_hostAddress = [shared objectForKey:@"host"];
-    NSString *d_port = [shared objectForKey:@"port"];
-    if(d_hostAddress == nil) {
-        d_hostAddress = DEFAULT_ADDRESS;
-        d_port = DEFAULT_PORT;
-    }
+    if(p_hostAddress == nil)
+        p_hostAddress = [shared objectForKey:@"host"];
+    if(p_hostAddress == nil)
+        p_hostAddress = DEFAULT_ADDRESS;
+    if(p_port == nil)
+        p_port = [shared objectForKey:@"port"];
+    if(p_port == nil)
+        p_port = DEFAULT_PORT;
     
-    NSString *stringUrl = [NSString stringWithFormat:@"ws://%@:%@/jsonrpc", d_hostAddress, d_port];
+    NSString *stringUrl = [NSString stringWithFormat:@"ws://%@:%@/jsonrpc", p_hostAddress, p_port];
     
     p_socket = [[SRWebSocket alloc] initWithURLRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:stringUrl]]];
     p_socket.delegate = self;
-    NSLog(@"Socket event : Atempting to connect to host at %@:%@", d_hostAddress, d_port);
+    NSLog(@"Socket event : Atempting to connect to host at %@:%@", p_hostAddress, p_port);
     [p_socket open];
-    
 }
 
 - (void)webSocketDidOpen:(SRWebSocket *)webSocket {
     NSLog(@"Socket event : connected");
+    [self setEnabledInterface:YES];
     [self requestPlayerGetActivePlayers:self];
     [self requestApplicationVolume:self];
 }
 
 - (void)webSocket:(SRWebSocket *)webSocket didFailWithError:(NSError *)error {
     NSLog(@"Socket error : %@", error.description);
+    [self setEnabledInterface:NO];
 }
 
 - (void)webSocket:(SRWebSocket *)webSocket didCloseWithCode:(NSInteger)code
            reason:(NSString *)reason wasClean:(BOOL)wasClean {
     NSLog(@"Socket event : closed");
+    [self setEnabledInterface:NO];
 }
 
 - (void)webSocket:(SRWebSocket *)webSocket didReceiveMessage:(id)data {
@@ -611,16 +630,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         //populating playlist's interface nspopupbutton
         for(NSDictionary *playListItem in p_playlistItems) {
             itemPosition++;
-            if([[playListItem valueForKey:@"label"] isEqualToString:@""]) {
-                [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"%02ld. missing item label", itemPosition]];
-            } else {
-                NSString *itemTitle = [playListItem valueForKey:@"label"];
-                NSRange range = [itemTitle rangeOfString:@"[0-9]+\. .*" options:NSRegularExpressionSearch];
-                if(range.location != NSNotFound)
-                    [self.playlistCombo addItemWithTitle:itemTitle];
-                else
-                    [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemTitle]];
-            }
+            NSString *itemTitle = [playListItem valueForKey:@"label"];
+            [self addItemToPlaylistView:itemTitle withPosition:itemPosition];
         }
         [self.playlistCombo selectItemAtIndex:p_currentItemPosition];
         [self setEnabledPlaylistControls:YES];
@@ -683,17 +694,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     
     if([p_playlistItems count] == 0) { //in case the player is open between onAdd and onPlay
         [p_playlistItems addObject:[[params valueForKey:@"data"] valueForKey:@"item"]];
-        
-        NSRange range = [p_currentItemLabel rangeOfString:@"[0-9]+\. .*" options:NSRegularExpressionSearch];
-        if(range.location != NSNotFound)
-            [self.playlistCombo addItemWithTitle:p_currentItemLabel];
-        else
-            [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"01. %@", p_currentItemLabel]];
+        [self addItemToPlaylistView:p_currentItemLabel withPosition:1];
     }
     
     [self requestPlayerGetActivePlayers:self];
     
-    if(!p_currentItemLabel)
+    if(!p_currentItemLabel || !p_playlistItems) //no current label = playlist titles missings
         [self requestPlaylistGetItems:self];
     else if(p_currentItemPosition != -1)
         [self requestPlayerGetPropertiesPlaylistPosition];
@@ -752,15 +758,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     if([p_playlistItems count] > 1)
         [self setEnabledPlaylistControls:YES];
     
-    if (!itemTitle || [itemTitle isEqualToString:@""])
-        [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"%02ld. missing item label", [[[params valueForKey:@"data"] valueForKey:@"position"] integerValue]+1]];
-    else {
-        NSRange range = [itemTitle rangeOfString:@"[0-9]+\. .*" options:NSRegularExpressionSearch];
-        if(range.location != NSNotFound)
-            [self.playlistCombo addItemWithTitle:itemTitle];
-        else
-            [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemTitle]];
-    }
+    [self addItemToPlaylistView:itemTitle withPosition:itemPosition+1];
 }
 
 - (void)handleApplicationOnVolumeChanged:(NSArray*)params {
@@ -771,6 +769,27 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 
 /***** View helpers *****/
+
+- (void)setEnabledInterface:(BOOL) enabled {
+    if(!enabled) {
+        [self.playerProgressBar setEnabled:NO];
+        [self.playerProgressBar setDoubleValue:0.0];
+        [self.speedLevel setEnabled:NO];
+        [self.playButton setEnabled:NO];
+        [self.stopButton setEnabled:NO];
+        [self.forwardButton setEnabled:NO];
+    }
+    [self.godownButton setEnabled:enabled];
+    [self.goleftButton setEnabled:enabled];
+    [self.gorightButton setEnabled:enabled];
+    [self.goupButton setEnabled:enabled];
+    [self.selectButton setEnabled:enabled];
+    [self.menuButton setEnabled:enabled];
+    [self.infoButton setEnabled:enabled];
+    [self.backButton setEnabled:enabled];
+    [self.homeButton setEnabled:enabled];
+    [self.volumeLevel setEnabled:enabled];
+}
 
 - (void)setEnabledPlayerControls:(BOOL) enabled {
     [self.playerProgressBar setEnabled:enabled];
@@ -788,6 +807,19 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         self.preferredContentSize = CGSizeMake(0, 120);
     else
         self.preferredContentSize = CGSizeMake(0, 93);
+}
+
+- (void)addItemToPlaylistView:(NSString*) itemLabel withPosition:(NSInteger) itemPosition {
+    
+    if(!itemLabel || [itemLabel isEqualToString:@""]) {
+        [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"%02ld. missing item label", itemPosition]];
+    } else {
+        NSRange range = [itemLabel rangeOfString:@"[0-9]+\. .*" options:NSRegularExpressionSearch];
+        if(range.location != NSNotFound)
+            [self.playlistCombo addItemWithTitle:itemLabel];
+        else
+            [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
+    }
 }
 
 
