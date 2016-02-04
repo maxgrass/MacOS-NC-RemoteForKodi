@@ -32,4 +32,6 @@ List of keyboard commands :
   <tr><td>shift+up</td><td>volume up</td></tr>
   <tr><td>p</td><td>play previous item in playlist</td></tr>
   <tr><td>n</td><td>play next item in playlist</td></tr>
+  <tr><td>shift + r</td><td>restart</td></tr>
+  <tr><td>cmd + v</td><td>add youtube or vimeo video to the playlist from a link in the clipboard</td></tr>
 </table>

@@ -32,6 +32,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     NSString *p_hostAddress;
     NSString *p_port;
     BOOL p_scheduleUpdate;
+    BOOL p_switchingItemInPlaylist;
     NSInteger p_playerid;
     double p_volumeLevel;
     KeyboardBehaviour p_keyboardBehaviour;
@@ -56,6 +57,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         [self fixDefaultsIfNeeded];
         self.widgetAllowsEditing = YES;
         p_scheduleUpdate = NO;
+        p_switchingItemInPlaylist = NO;
         p_keyboardBehaviour = command;
         p_playerid = -1;
         p_currentItemPosition = -1;
@@ -472,6 +474,24 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self remoteRequest:request withLog:YES];
 }
 
+- (IBAction)sendPlayerOpenVideo:(id)sender {
+    //Player.Open
+    NSString *request = @"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Open\",\"params\":{\"item\":{\"playlistid\":1}}}";
+    [self remoteRequest:request withLog:YES];
+}
+
+- (IBAction)sendPlaylistAddVideo:(id)sender streamLink:(NSString *)link {
+    //Playlist.Add
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Playlist.Add\",\"params\":{\"playlistid\":1, \"item\":{\"file\":\"%@\"}}}", link];
+    [self remoteRequest:request withLog:YES];
+}
+
+- (IBAction)sendPlaylistClearVideo:(id)sender {
+    //Playlist.Clear
+    NSString *request = @"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Playlist.Clear\",\"params\":{\"playlistid\":1}}";
+    [self remoteRequest:request withLog:YES];
+}
+
 - (IBAction)sendPlayerSeek:(id)sender {
     //Player.Seek
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":%i}}", p_playerid, self.playerProgressBar.intValue];
@@ -519,6 +539,10 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (IBAction)sendPlayerGoToNext:(id)sender {
     //Player.GoTo
+    if(p_switchingItemInPlaylist) return;
+    p_switchingItemInPlaylist = YES;
+    [self.nextPlaylistItemButton setEnabled:NO];
+    [self.playlistCombo setEnabled:NO];
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.GoTo\",\"params\":{\"playerid\":%ld,\"to\":\"next\"}}", p_playerid];
     [self remoteRequest:request withLog:YES];
     [self.nextPlaylistItemButton highlight:YES];
@@ -531,6 +555,10 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (IBAction)sendPlayerGoTo:(NSPopUpButton*)sender {
     //Player.GoTo
+    if(p_switchingItemInPlaylist) return;
+    p_switchingItemInPlaylist = YES;
+    [self.nextPlaylistItemButton setEnabled:NO];
+    [self.playlistCombo setEnabled:NO];
     if(p_currentItemPosition == [sender indexOfSelectedItem]) return;
     p_currentItemPosition = [sender indexOfSelectedItem];
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.GoTo\",\"params\":{\"playerid\":%ld,\"to\":%d}}", p_playerid, (int)p_currentItemPosition];
@@ -541,6 +569,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
                                    selector:@selector(highlight:)
                                    userInfo:nil
                                     repeats:NO];
+}
+
+- (IBAction)sendSystemReboot:(id)sender {
+    //System.Reboot
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"System.Reboot\"}"];
+    [self remoteRequest:request withLog:YES];
 }
 
 - (void)sendInputSendText:(NSString *)string andSubmit:(BOOL)submit {
@@ -689,7 +723,9 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 - (void)handlePlayerOnPlay:(NSArray*)params {
     p_playerid = [[[[params valueForKey:@"data"] valueForKey:@"player"] valueForKey:@"playerid"] integerValue];
     p_currentItemLabel = [[[params valueForKey:@"data"] valueForKey:@"item"] valueForKey:@"title"];
-    
+    p_switchingItemInPlaylist = NO;
+    [self.nextPlaylistItemButton setEnabled:YES];
+    [self.playlistCombo setEnabled:YES];
     [self setEnabledPlayerControls:YES];
     
     if([p_playlistItems count] == 0) { //in case the player is open between onAdd and onPlay
@@ -929,6 +965,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 }
 
 - (void)keyboardCommandsMapping:(NSEvent *)event {
+//    NSLog(@"key pressed : %hi", event.keyCode);
     switch (event.keyCode)
     {
         case 1: // s key
@@ -957,6 +994,10 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
             break;
         case 46:  // m key
             [self sendInputExecuteActionContextMenu:self];
+            break;
+        case 15:  // r key
+            if(event.modifierFlags & NSShiftKeyMask)
+                [self sendSystemReboot:self];
             break;
         case 49:  // space key
             [self sendInputExecuteActionPause:self];
@@ -988,8 +1029,67 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
             else
                 [self sendInputUp:self];
             break;
+        case 9:   // v key
+            if(event.modifierFlags & NSCommandKeyMask) {
+                NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+                NSString* pastedString = [pasteboard  stringForType:NSPasteboardTypeString];
+                [self handleStreamLink:pastedString];
+            }
+            break;
         default:
             break;
+    }
+}
+
+- (void)handleStreamLink:(NSString *)link {
+    NSString *videoId;
+    NSString *plugginSpecificCommand;
+    if([link containsString:@"youtube.com/"]) {
+        NSRange videoArgPos = [link rangeOfString:@"v="];
+        if(videoArgPos.location != NSNotFound) {
+            @try {
+                videoId = [[link substringFromIndex:videoArgPos.location+2] substringToIndex:11];
+                plugginSpecificCommand = [NSString stringWithFormat:@"plugin://plugin.video.youtube/?action=play_video&videoid=%@", videoId];
+            }
+            @catch (NSException *exception) {
+                NSLog(@"Non suitable link");
+            }
+        }
+    }
+    else if([link containsString:@"vimeo.com/"]) {
+        NSRange videoArgPos = [link rangeOfString:@"vimeo.com/"];
+        if(videoArgPos.location != NSNotFound) {
+            @try {
+                videoId = [[link substringFromIndex:videoArgPos.location+10] substringToIndex:9];
+                plugginSpecificCommand = [NSString stringWithFormat:@"plugin://plugin.video.vimeo/play/?video_id=%@", videoId];
+                
+            }
+            @catch (NSException *exception) {
+                NSLog(@"Non suitable link");
+            }
+        }
+    }
+//    else if([link containsString:@"dailymotion.com/"]) {
+//        NSRange videoArgPos = [link rangeOfString:@"video/"];
+//        if(videoArgPos.location != NSNotFound) {
+//            @try {
+//                videoId = [link substringFromIndex:videoArgPos.location+6];
+//                plugginSpecificCommand = [NSString stringWithFormat:@"plugin://plugin.video.dailymotion/?action=play_video&videoid=%@", videoId];
+//                
+//            }
+//            @catch (NSException *exception) {
+//                NSLog(@"Non suitable link");
+//            }
+//        }
+//    }
+    if(plugginSpecificCommand != nil) {
+        if(p_playerid != 1) {
+            [self sendPlaylistClearVideo:self];
+            [self sendPlaylistAddVideo:self streamLink:plugginSpecificCommand];
+            [self sendPlayerOpenVideo:self];
+        }
+        else
+            [self sendPlaylistAddVideo:self streamLink:plugginSpecificCommand];
     }
 }
 
