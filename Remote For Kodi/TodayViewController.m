@@ -28,7 +28,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 };
 
 
-@interface TodayViewController () <NCWidgetProviding, SRWebSocketDelegate> {
+@interface TodayViewController () <NCWidgetProviding, SRWebSocketDelegate, NSTextFieldDelegate> {
     NSString *p_hostAddress;
     NSString *p_port;
     BOOL p_scheduleUpdate;
@@ -36,13 +36,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     NSInteger p_playerid;
     double p_volumeLevel;
     KeyboardBehaviour p_keyboardBehaviour;
-    NSMutableString *p_inputString;
-    NSUInteger p_inputStringPos;
-    NSUInteger p_inputStringLength;
     NSMutableArray *p_playlistItems;
     NSDate *p_lastPlaylistAdd;
     NSString *p_currentItemLabel;
     NSInteger p_currentItemPosition;
+    NSDate *p_lastRequestDate;
+    NSString *p_lastRequest;
 }
 
 @property (readwrite) BOOL widgetAllowsEditing;
@@ -66,6 +65,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         [self loadSettings];
         [self loadControlState];
         self.preferredContentSize = CGSizeMake(0, 93);
+        [self.inputTextTextField setDelegate:self];
+        [self.view.window makeFirstResponder:self.view];
     }
     return self;
 }
@@ -304,6 +305,9 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
             else if([method isEqualTo:@"Application.OnVolumeChanged"]) {
                 [self handleApplicationOnVolumeChanged:params];
             }
+            else if([method isEqualTo:@"GUI.OnScreensaverDeactivated"]) {
+                [self handleGUIOnScreenSaverDeactivated];
+            }
         }
     }
 }
@@ -314,6 +318,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     }
     else {
         if(log) NSLog(@"Sending request : %@", request);
+        p_lastRequestDate = [NSDate date];
+        p_lastRequest = request;
         [p_socket send:request];
     }
 }
@@ -577,6 +583,13 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self remoteRequest:request withLog:YES];
 }
 
+- (IBAction)sendVideoLibraryScan:(id)sender {
+    //VideoLibrary.Scan
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"VideoLibrary.Scan\"}"];
+    [self remoteRequest:request withLog:YES];
+    
+}
+
 - (void)sendInputSendText:(NSString *)string andSubmit:(BOOL)submit {
     //Input.SendText
     NSString *done;
@@ -596,7 +609,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 - (void)requestPlayerGetPropertiesPercentageSpeed:(id)sender {
     //Player.GetProperties
     if (p_playerid == -1) return;
-    NSString *request = [NSString stringWithFormat:@"{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetProperties\",\"params\":{\"playerid\":%ld,\"properties\":[\"percentage\",\"speed\"]}}", p_playerid];
+    NSString *request = [NSString stringWithFormat:@"{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetProperties\",\"params\":{\"playerid\":%ld,\"properties\":[\"time\",\"totaltime\",\"percentage\",\"speed\"]}}", p_playerid];
     [self remoteRequest:request withLog:NO];
 }
 
@@ -629,7 +642,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 /***** Handling functions to Kodi's messages *****/
 
 - (void)handleError {
-    [self handlePlayerOnStop:nil];
+//    [self handlePlayerOnStop:nil];
 }
 
 - (void)handleApplicationVolume:(NSArray*)params {
@@ -644,6 +657,16 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     
     //update progressbar
     [self.playerProgressBar setEnabled:YES];
+    NSArray *time =[params valueForKey:@"time"];
+    [self.playerProgressTime setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld",
+                                             [[time valueForKey:@"hours"] longValue],
+                                             [[time valueForKey:@"minutes"] longValue],
+                                             [[time valueForKey:@"seconds"] longValue]]];
+    time =[params valueForKey:@"totaltime"];
+    [self.playerProgressTotalTime setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld",
+                                             [[time valueForKey:@"hours"] longValue],
+                                             [[time valueForKey:@"minutes"] longValue],
+                                             [[time valueForKey:@"seconds"] longValue]]];
     [self.playerProgressBar setDoubleValue:[[params valueForKey:@"percentage"] doubleValue]];
     
     if([[params valueForKey:@"speed"] integerValue] == 0)
@@ -748,6 +771,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self setEnabledPlayerControls:NO];
     p_currentItemLabel = nil;
     p_playerid = -1;
+    [self.playerProgressTime setStringValue:@"0:00:00"];
+    [self.playerProgressTotalTime setStringValue:@"0:00:00"];
     p_scheduleUpdate = NO;
     if(!params || ![[[params valueForKey:@"data"] valueForKey:@"end"] boolValue]) {
         [self setEnabledPlaylistControls:NO];
@@ -758,15 +783,16 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)handleInputOnInputRequested:(NSArray*)params {
     p_keyboardBehaviour = textInput;
-    p_inputString = [NSMutableString stringWithString:[[params valueForKey:@"data"] valueForKey:@"value"]];
-    p_inputStringPos = p_inputString.length;
-    p_inputStringLength = p_inputString.length;
+    [self setEnabledNavigationArrows:NO];
     [self.textView setHidden:NO];
+    [self.view.window makeFirstResponder:self.inputTextTextField];
     [self.playerView setHidden:YES];
 }
 
 - (void)handleInputOnInputFinished {
     p_keyboardBehaviour = command;
+    [self setEnabledNavigationArrows:YES];
+    [self.view.window makeFirstResponder:self.view];
     [self.textView setHidden:YES];
     [self.playerView setHidden:NO];
 }
@@ -802,6 +828,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self.volumeLevel setIntegerValue:(NSInteger)p_volumeLevel];
 }
 
+- (void)handleGUIOnScreenSaverDeactivated {
+    if (p_lastRequestDate && [[NSDate date] timeIntervalSinceDate:p_lastRequestDate] < 2
+        && ![p_lastRequest containsString:@"Playlist.Add"]) {
+        [self remoteRequest:p_lastRequest withLog:YES];
+    }
+}
 
 
 /***** View helpers *****/
@@ -825,6 +857,13 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self.backButton setEnabled:enabled];
     [self.homeButton setEnabled:enabled];
     [self.volumeLevel setEnabled:enabled];
+}
+
+- (void)setEnabledNavigationArrows:(BOOL) enabled {
+    [self.godownButton setEnabled:enabled];
+    [self.goleftButton setEnabled:enabled];
+    [self.gorightButton setEnabled:enabled];
+    [self.goupButton setEnabled:enabled];
 }
 
 - (void)setEnabledPlayerControls:(BOOL) enabled {
@@ -866,7 +905,6 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     switch (p_keyboardBehaviour)
     {
         case textInput:
-            [self keyboardAsTextInput:event];
             break;
         case command:
             [self keyboardCommandsMapping:event];
@@ -874,93 +912,29 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     }
 }
 
-- (void)keyboardAsTextInput:(NSEvent *)event {
-    
-    switch (event.keyCode)
-    {
-        case 36:  // return key
-//            [self sendInputSendText:p_inputString.description andSubmit:YES];
-            [self sendInputSelect:self];
-            break;
-        case 51:  // back key
-            if (p_inputStringLength > 0) {
-                if(p_inputStringPos < 1) break;
-                NSString *postStr = [p_inputString substringFromIndex:p_inputStringPos];
-                [p_inputString setString:[p_inputString substringToIndex:p_inputStringPos-1]];
-                [p_inputString appendString:postStr];
-                p_inputStringPos--;
-                p_inputStringLength--;
-                [self sendInputSendText:p_inputString.description andSubmit:NO];
-                for (NSUInteger kodiCursorPos = p_inputStringLength; kodiCursorPos>p_inputStringPos; kodiCursorPos--) {
-                    [self sendInputLeft:self];
-                }
-            } else {
+- (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector {
+    if([control isEqual:self.inputTextTextField]) {
+        if (commandSelector == @selector(deleteBackward:)) {
+            if(self.inputTextTextField.stringValue.length == 0) {
                 [self sendInputExecuteActionBack:self];
+                return YES;
             }
-            break;
-        case 117:  // supr key
-            if (p_inputStringPos < p_inputStringLength) {
-                NSString *postStr = [p_inputString substringFromIndex:p_inputStringPos+1];
-                [p_inputString setString:[p_inputString substringToIndex:p_inputStringPos]];
-                [p_inputString appendString:postStr];
-                p_inputStringLength--;
-                [self sendInputSendText:p_inputString.description andSubmit:NO];
-                for (NSUInteger kodiCursorPos = p_inputStringLength; kodiCursorPos>p_inputStringPos; kodiCursorPos--) {
-                    [self sendInputLeft:self];
-                }
-            }
-            break;
-        case 123: // left key
-//            if (p_inputStringPos > 0) {
-//                p_inputStringPos--;
-//                [self sendInputLeft:self];
-//            }
-            [self sendInputLeft:self];
-            break;
-        case 124: // right key
-//            if (p_inputStringPos < p_inputStringLength) {
-//                p_inputStringPos++;
-//                [self sendInputRight:self];
-//            }
-            [self sendInputRight:self];
-            break;
-        case 125: // down key
-            [self sendInputDown:self];
-            break;
-        case 126: // up key
-            [self sendInputUp:self];
-            break;
-        case 9:
-            if(event.modifierFlags & NSCommandKeyMask) {
-                NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
-                NSString* pastedString = [pasteboard  stringForType:NSPasteboardTypeString];
-                if([pastedString containsString:@"\n"] || [pastedString containsString:@"\""]) break;
-                NSString *postStr = [p_inputString substringFromIndex:p_inputStringPos];
-                [p_inputString setString:[p_inputString substringToIndex:p_inputStringPos]];
-                [p_inputString appendString:pastedString];
-                [p_inputString appendString:postStr];
-                p_inputStringPos+=pastedString.length;
-                p_inputStringLength+=pastedString.length;
-                [self sendInputSendText:p_inputString.description andSubmit:NO];
-                for (NSUInteger kodiCursorPos = p_inputStringLength; kodiCursorPos>p_inputStringPos; kodiCursorPos--) {
-                    [self sendInputLeft:self];
-                }
-                break;
-            }
-        default:
-        {
-            NSString *postStr = [p_inputString substringFromIndex:p_inputStringPos];
-            [p_inputString setString:[p_inputString substringToIndex:p_inputStringPos]];
-            [p_inputString appendString:event.characters];
-            [p_inputString appendString:postStr];
-            p_inputStringPos++;
-            p_inputStringLength++;
-            [self sendInputSendText:p_inputString.description andSubmit:NO];
-            for (NSUInteger kodiCursorPos = p_inputStringLength; kodiCursorPos>p_inputStringPos; kodiCursorPos--) {
-                [self sendInputLeft:self];
-            }
-            break;
         }
+        else if (commandSelector == @selector(insertNewline:)) {
+            [self sendInputSendText:self.inputTextTextField.stringValue andSubmit:YES];
+            [self.inputTextTextField setStringValue:@""];
+            return YES;
+        }
+    }
+    return NO;
+}
+
+- (void)controlTextDidChange:(NSNotification *)obj {
+    if([obj.object isEqual:self.inputTextTextField]) {
+        if(self.inputTextTextField.stringValue) {
+        }
+            
+        [self sendInputSendText:self.inputTextTextField.stringValue andSubmit:NO];
     }
 }
 
@@ -969,16 +943,28 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     switch (event.keyCode)
     {
         case 1: // s key
-            [self sendInputExecuteActionStop:self];
+            if(event.modifierFlags & NSShiftKeyMask)
+                [self sendPlayerSeekForward:self];
+            else
+                [self sendInputExecuteActionStop:self];
             break;
         case 3: // b key
             [self sendPlayerSeekForward:self];
+            break;
+        case 7: // x key
+            [self sendInputExecuteActionStop:self];
+            break;
+        case 8: // c key
+            [self sendInputExecuteActionContextMenu:self];
             break;
         case 11: // b key
             [self sendPlayerSeekBackward:self];
             break;
         case 4:  // h key
             [self sendInputHome:self];
+            break;
+        case 32:  // u key
+            [self sendVideoLibraryScan:self];
             break;
         case 34:  // i key
             [self sendInputInfo:self];
@@ -1082,6 +1068,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 //            }
 //        }
 //    }
+    
     if(plugginSpecificCommand != nil) {
         if(p_playerid != 1) {
             [self sendPlaylistClearVideo:self];

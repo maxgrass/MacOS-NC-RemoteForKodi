@@ -41,6 +41,8 @@
 @property (weak) IBOutlet NSButton *forwardButton;
 
 @property (weak) IBOutlet NSSlider *playerProgressBar;
+@property (weak) IBOutlet NSTextField *playerProgressTime;
+@property (weak) IBOutlet NSTextField *playerProgressTotalTime;
 @property (weak) IBOutlet NSSlider *volumeLevel;
 @property (weak) IBOutlet NSSlider *speedLevel;
 
