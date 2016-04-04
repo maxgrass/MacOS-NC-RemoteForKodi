@@ -23,8 +23,9 @@ List of keyboard commands :
   <tr><td>return</td><td>select</td></tr>
   <tr><td>back</td><td>back</td></tr>
   <tr><td>h</td><td>home</td></tr>
-  <tr><td>m</td><td>context menu</td></tr>
+  <tr><td>c / m</td><td>context menu</td></tr>
   <tr><td>i</td><td>info</td></tr>
+  <tr><td>x / s</td><td>stop</td></tr>
   <tr><td>space</td><td>pause</td></tr>
   <tr><td>f / shift+left</td><td>forward player progress</td></tr>
   <tr><td>b / shift+right</td><td>backward player progress</td></tr>
