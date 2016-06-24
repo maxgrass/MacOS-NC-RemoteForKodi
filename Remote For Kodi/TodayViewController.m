@@ -17,11 +17,6 @@
 #import "TodayViewController.h"
 #import <NotificationCenter/NotificationCenter.h>
 
-
-#define DEFAULT_ADDRESS @"192.168.0.101"
-#define DEFAULT_PORT @"9090"
-
-
 typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     textInput,
     command
@@ -42,6 +37,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     NSInteger p_currentItemPosition;
     NSDate *p_lastRequestDate;
     NSString *p_lastRequest;
+    NSTimeInterval p_itemDuration;
 }
 
 @property (readwrite) BOOL widgetAllowsEditing;
@@ -66,6 +62,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         [self loadControlState];
         self.preferredContentSize = CGSizeMake(0, 93);
         [self.inputTextTextField setDelegate:self];
+        [self.hostAddress setDelegate:self];
+        [self.port setDelegate:self];
         [self.view.window makeFirstResponder:self.view];
     }
     return self;
@@ -118,18 +116,19 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)loadSettings {
     [self fixDefaultsIfNeeded];
+    [self.version setStringValue:[NSString stringWithFormat:@"version %@", @VERSION_NB]];
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
     if(p_hostAddress != nil) [self.hostAddress setStringValue:p_hostAddress];
     else {
         NSString *savedHostAddress = [shared objectForKey:@"host"];
         if(savedHostAddress != nil)[self.hostAddress setStringValue:savedHostAddress];
-        else [self.hostAddress setStringValue:DEFAULT_ADDRESS];
+        else [self.hostAddress setStringValue:@DEFAULT_ADDRESS];
     }
     if(p_port != nil) [self.port setStringValue:p_port];
     else {
         NSString *savedPortAddress = [shared objectForKey:@"port"];
         if(savedPortAddress != nil)[self.port setStringValue:savedPortAddress];
-        else [self.port setStringValue:DEFAULT_PORT];
+        else [self.port setStringValue:@DEFAULT_PORT];
     }
 }
 
@@ -154,6 +153,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self setEnabledPlayerControls:NO];
     [self connectToKodi];
     [self setEnabledInterface:NO];
+    if(p_hostAddress == nil)
+       [self widgetDidBeginEditing];
 }
 
 - (void)viewDidDisappear {
@@ -193,11 +194,11 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     if(p_hostAddress == nil)
         p_hostAddress = [shared objectForKey:@"host"];
     if(p_hostAddress == nil)
-        p_hostAddress = DEFAULT_ADDRESS;
+        p_hostAddress = @DEFAULT_ADDRESS;
     if(p_port == nil)
         p_port = [shared objectForKey:@"port"];
     if(p_port == nil)
-        p_port = DEFAULT_PORT;
+        p_port = @DEFAULT_PORT;
     
     NSString *stringUrl = [NSString stringWithFormat:@"ws://%@:%@/jsonrpc", p_hostAddress, p_port];
     
@@ -500,8 +501,28 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (IBAction)sendPlayerSeek:(id)sender {
     //Player.Seek
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":%i}}", p_playerid, self.playerProgressBar.intValue];
-    [self remoteRequest:request withLog:YES];
+    NSEvent *event = [[NSApplication sharedApplication] currentEvent];
+    if(event.type == NSLeftMouseDragged) {
+        long itemDurationH = p_itemDuration/3600;
+        long itemDurationM = fmod(p_itemDuration, 3600)/60;
+        long itemDurationS = fmod(p_itemDuration, 60);
+        NSTimeInterval itemSeek = p_itemDuration*((double)self.playerProgressBar.intValue/100);
+        long itemSeekH = itemSeek/3600;
+        long itemSeekM = fmod(itemSeek, 3600)/60;
+        long itemSeekS = fmod(itemSeek, 60) ;
+        [self.playerProgressTime setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld/%ld:%02ld:%02ld",
+                                                 itemSeekH,
+                                                 itemSeekM,
+                                                 itemSeekS,
+                                                 itemDurationH,
+                                                 itemDurationM,
+                                                 itemDurationS]];
+    }
+    
+    if(event.type == NSLeftMouseUp) {
+        NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":%i}}", p_playerid, self.playerProgressBar.intValue];
+        [self remoteRequest:request withLog:YES];
+    }
 }
 
 - (IBAction)sendPlayerSeekForward:(id)sender {
@@ -514,6 +535,14 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     //Player.Seek
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":\"smallbackward\"}}", p_playerid];
     [self remoteRequest:request withLog:YES];
+}
+
+- (IBAction)sendPlayerMarkAsWatched:(id)sender {
+    [self sendInputExecuteActionContextMenu:self];
+    for (int i = 0; i<4; i++) {
+        [self sendInputDown:self];
+    }
+    [self sendInputSelect:self];
 }
 
 - (IBAction)sendPlayerSetSpeed:(id)sender {
@@ -657,17 +686,22 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     
     //update progressbar
     [self.playerProgressBar setEnabled:YES];
-    NSArray *time =[params valueForKey:@"time"];
-    [self.playerProgressTime setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld",
+    NSArray *time = [params valueForKey:@"time"];
+    NSArray *totalTime = [params valueForKey:@"totaltime"];
+    [self.playerProgressTime setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld/%ld:%02ld:%02ld",
                                              [[time valueForKey:@"hours"] longValue],
                                              [[time valueForKey:@"minutes"] longValue],
-                                             [[time valueForKey:@"seconds"] longValue]]];
-    time =[params valueForKey:@"totaltime"];
-    [self.playerProgressTotalTime setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld",
-                                             [[time valueForKey:@"hours"] longValue],
-                                             [[time valueForKey:@"minutes"] longValue],
-                                             [[time valueForKey:@"seconds"] longValue]]];
+                                             [[time valueForKey:@"seconds"] longValue],
+                                             [[totalTime valueForKey:@"hours"] longValue],
+                                             [[totalTime valueForKey:@"minutes"] longValue],
+                                             [[totalTime valueForKey:@"seconds"] longValue]]];
     [self.playerProgressBar setDoubleValue:[[params valueForKey:@"percentage"] doubleValue]];
+    
+    p_itemDuration = 0;
+    p_itemDuration += [[totalTime valueForKey:@"hours"] longValue]*3600;
+    p_itemDuration += [[totalTime valueForKey:@"minutes"] longValue]*60;
+    p_itemDuration += [[totalTime valueForKey:@"seconds"] longValue];
+    
     
     if([[params valueForKey:@"speed"] integerValue] == 0)
         [self.playButton setImage:[NSImage imageNamed:@"play"]];
@@ -771,8 +805,6 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self setEnabledPlayerControls:NO];
     p_currentItemLabel = nil;
     p_playerid = -1;
-    [self.playerProgressTime setStringValue:@"0:00:00"];
-    [self.playerProgressTotalTime setStringValue:@"0:00:00"];
     p_scheduleUpdate = NO;
     if(!params || ![[[params valueForKey:@"data"] valueForKey:@"end"] boolValue]) {
         [self setEnabledPlaylistControls:NO];
@@ -873,6 +905,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self.playButton setEnabled:enabled];
     [self.stopButton setEnabled:enabled];
     [self.forwardButton setEnabled:enabled];
+    if(enabled)
+        [self.playerProgressTime setTextColor:[NSColor controlLightHighlightColor]];
+    else {
+        [self.playerProgressTime setTextColor:[NSColor quaternaryLabelColor]];
+        [self.playerProgressTime setStringValue:@"0:00:00/0:00:00"];
+    }
 }
 
 - (void)setEnabledPlaylistControls:(BOOL) enabled {
@@ -926,6 +964,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
             return YES;
         }
     }
+    else if([control isEqual:self.hostAddress]) {
+        [self.view.window makeFirstResponder:self.port];
+    }
+    else if([control isEqual:self.port]) {
+        [self widgetDidEndEditing];
+    }
     return NO;
 }
 
@@ -939,7 +983,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 }
 
 - (void)keyboardCommandsMapping:(NSEvent *)event {
-//    NSLog(@"key pressed : %hi", event.keyCode);
+    NSLog(@"key pressed : %hi", event.keyCode);
     switch (event.keyCode)
     {
         case 1: // s key
@@ -948,7 +992,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
             else
                 [self sendInputExecuteActionStop:self];
             break;
-        case 3: // b key
+        case 3: // f key
             [self sendPlayerSeekForward:self];
             break;
         case 7: // x key
@@ -960,6 +1004,9 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         case 11: // b key
             [self sendPlayerSeekBackward:self];
             break;
+        case 13: // w key
+            [self sendPlayerMarkAsWatched:self];
+            break;
         case 4:  // h key
             [self sendInputHome:self];
             break;
@@ -967,13 +1014,17 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
             [self sendVideoLibraryScan:self];
             break;
         case 34:  // i key
-            [self sendInputInfo:self];
+           [self sendInputInfo:self];
             break;
         case 35:  // p key
             [self sendPlayerGoToPrevious:self];
             break;
         case 36:  // return key
             [self sendInputSelect:self];
+            break;
+        case 43:
+            if(event.modifierFlags & NSCommandKeyMask)
+                [self widgetDidBeginEditing];
             break;
         case 45:  // n key
             [self sendPlayerGoToNext:self];

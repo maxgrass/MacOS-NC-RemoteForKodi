@@ -17,6 +17,10 @@
 #import <Cocoa/Cocoa.h>
 #import <SocketRocket/SRWebSocket.h>
 
+#define VERSION_NB "1.0"
+#define DEFAULT_ADDRESS "192.168.0.101"
+#define DEFAULT_PORT "9090"
+
 @interface TodayViewController : NSViewController {
     SRWebSocket *p_socket;
 }
@@ -42,7 +46,6 @@
 
 @property (weak) IBOutlet NSSlider *playerProgressBar;
 @property (weak) IBOutlet NSTextField *playerProgressTime;
-@property (weak) IBOutlet NSTextField *playerProgressTotalTime;
 @property (weak) IBOutlet NSSlider *volumeLevel;
 @property (weak) IBOutlet NSSlider *speedLevel;
 
@@ -55,5 +58,6 @@
 @property (weak) IBOutlet NSTextField *port;
 @property (weak) IBOutlet NSTextField *userTextField;
 @property (weak) IBOutlet NSTextField *passwordTextField;
+@property (weak) IBOutlet NSTextField *version;
 
 @end
