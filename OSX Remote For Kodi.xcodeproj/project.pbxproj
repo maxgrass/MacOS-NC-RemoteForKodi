@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BC00DE391D2841960081510A /* CHANGELOG.md in Sources */ = {isa = PBXBuildFile; fileRef = BC00DE381D2841960081510A /* CHANGELOG.md */; };
 		BCA0C4FA1B77B437003D6F45 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = BCA0C4F91B77B437003D6F45 /* AppDelegate.m */; };
 		BCA0C4FC1B77B437003D6F45 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = BCA0C4FB1B77B437003D6F45 /* main.m */; };
 		BCA0C4FF1B77B437003D6F45 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = BCA0C4FE1B77B437003D6F45 /* ViewController.m */; };
@@ -68,6 +69,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		BC00DE381D2841960081510A /* CHANGELOG.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		BC0819DC1C51775A00884B3E /* OSX Remote For Kodi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "OSX Remote For Kodi.entitlements"; sourceTree = "<group>"; };
 		BC2B1F2A1B78E63900F15764 /* libSocketRocket.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSocketRocket.a; path = "../../../Library/Developer/Xcode/DerivedData/OSX_Remote_For_Kodi-btjfqerzbehbzacoxqjzhbzhbjdf/Build/Products/Debug/libSocketRocket.a"; sourceTree = "<group>"; };
 		BC2B1F2B1B78E63900F15764 /* SocketRocket.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SocketRocket.framework; path = "../../../Library/Developer/Xcode/DerivedData/OSX_Remote_For_Kodi-btjfqerzbehbzacoxqjzhbzhbjdf/Build/Products/Debug/SocketRocket.framework"; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 		BCA0C4EA1B77B437003D6F45 = {
 			isa = PBXGroup;
 			children = (
+				BC00DE381D2841960081510A /* CHANGELOG.md */,
 				BCB564551B7924520062B31D /* README.md */,
 				BCB564531B7924360062B31D /* LICENCE */,
 				BCA0C4F51B77B437003D6F45 /* OSX Remote For Kodi */,
@@ -367,6 +370,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BCA0C4FF1B77B437003D6F45 /* ViewController.m in Sources */,
+				BC00DE391D2841960081510A /* CHANGELOG.md in Sources */,
 				BCA0C4FC1B77B437003D6F45 /* main.m in Sources */,
 				BCB564561B7924520062B31D /* README.md in Sources */,
 				BCA0C4FA1B77B437003D6F45 /* AppDelegate.m in Sources */,

@@ -19,13 +19,16 @@
 
 typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     textInput,
-    command
+    command,
+    settings
 };
 
 
 @interface TodayViewController () <NCWidgetProviding, SRWebSocketDelegate, NSTextFieldDelegate> {
     NSString *p_hostAddress;
     NSString *p_port;
+    NSString *p_username;
+    NSString *p_password;
     BOOL p_scheduleUpdate;
     BOOL p_switchingItemInPlaylist;
     NSInteger p_playerid;
@@ -64,6 +67,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         [self.inputTextTextField setDelegate:self];
         [self.hostAddress setDelegate:self];
         [self.port setDelegate:self];
+        [self.userTextField setDelegate:self];
+        [self.passwordTextField setDelegate:self];
         [self.view.window makeFirstResponder:self.view];
     }
     return self;
@@ -106,17 +111,23 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)saveSettings {
     [self fixDefaultsIfNeeded];
+    
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
     [shared setObject:self.hostAddress.stringValue forKey:@"host"];
     [shared setObject:self.port.stringValue forKey:@"port"];
+    [shared setObject:self.userTextField.stringValue forKey:@"username"];
+    [shared setObject:self.passwordTextField.stringValue forKey:@"password"];
     [shared synchronize];
+    
     p_hostAddress = self.hostAddress.stringValue;
     p_port = self.port.stringValue;
+    p_username = self.userTextField.stringValue;
+    p_password = self.passwordTextField.stringValue;
 }
 
 - (void)loadSettings {
     [self fixDefaultsIfNeeded];
-    [self.version setStringValue:[NSString stringWithFormat:@"version %@", @VERSION_NB]];
+    [self.version setStringValue:[NSString stringWithFormat:@"v. %@", @VERSION_NB]];
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
     if(p_hostAddress != nil) [self.hostAddress setStringValue:p_hostAddress];
     else {
@@ -130,12 +141,24 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         if(savedPortAddress != nil)[self.port setStringValue:savedPortAddress];
         else [self.port setStringValue:@DEFAULT_PORT];
     }
+    if(p_username != nil) [self.userTextField setStringValue:p_username];
+    else {
+        NSString *savedUsername = [shared objectForKey:@"username"];
+        if(savedUsername != nil)[self.userTextField setStringValue:savedUsername];
+        else [self.userTextField setStringValue:@DEFAULT_USERNAME];
+    }
+    if(p_password != nil) [self.passwordTextField setStringValue:p_password];
+    else {
+        NSString *savedPassword = [shared objectForKey:@"password"];
+        if(savedPassword != nil)[self.passwordTextField setStringValue:savedPassword];
+        else [self.passwordTextField setStringValue:@DEFAULT_USERNAME];
+    }
 }
 
 - (void)saveControlState {
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
-    [shared setObject:[NSString stringWithFormat:@"%f", self.playerProgressBar.doubleValue] forKey:@"playerProgress"];
-    [shared setObject:[NSString stringWithFormat:@"%f", self.volumeLevel.doubleValue] forKey:@"volume"];
+//    [shared setObject:[NSString stringWithFormat:@"%f", self.playerProgressBar.doubleValue] forKey:@"playerProgress"];
+//    [shared setObject:[NSString stringWithFormat:@"%f", self.volumeLevel.doubleValue] forKey:@"volume"];
 //    [shared setObject:@(p_keyboardBehaviour) forKey:@"keyboardBehaviour"];
     [shared synchronize];
 }
@@ -167,6 +190,9 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [p_socket close];
     [self.mainView setHidden:YES];
     [self setEnabledPlaylistControls:NO];
+    
+    p_keyboardBehaviour = settings;
+    
     [self.settingsView setHidden:NO];
     [self loadSettings];
     [self.view.window makeFirstResponder:self.hostAddress];
@@ -174,6 +200,9 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)widgetDidEndEditing {
     [self saveSettings];
+    
+    p_keyboardBehaviour = command;
+    
     [self.mainView setHidden:NO];
     if(p_playlistItems && [p_playlistItems count] > 1)
         [self setEnabledPlaylistControls:YES];
@@ -191,18 +220,36 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     }
     
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
-    if(p_hostAddress == nil)
+    
+    if(p_hostAddress == nil) {
         p_hostAddress = [shared objectForKey:@"host"];
-    if(p_hostAddress == nil)
-        p_hostAddress = @DEFAULT_ADDRESS;
-    if(p_port == nil)
+        if(p_hostAddress == nil)
+            p_hostAddress = @DEFAULT_ADDRESS;
+    }
+    if(p_port == nil) {
         p_port = [shared objectForKey:@"port"];
-    if(p_port == nil)
-        p_port = @DEFAULT_PORT;
+        if(p_port == nil)
+            p_port = @DEFAULT_PORT;
+    }
+    if(p_username == nil) {
+        p_username = [shared objectForKey:@"username"];
+        if(p_username == nil)
+            p_username = @DEFAULT_USERNAME;
+    }
+    if(p_password == nil) {
+        p_password = [shared objectForKey:@"password"];
+        if(p_password == nil)
+            p_password = @DEFAULT_PASSWORD;
+    }
     
-    NSString *stringUrl = [NSString stringWithFormat:@"ws://%@:%@/jsonrpc", p_hostAddress, p_port];
+    NSString *stringURL;
+    if([p_username isEqualToString:@""])
+        stringURL = [NSString stringWithFormat:@"ws://%@:%@/jsonrpc", p_hostAddress, p_port];
+    else
+        stringURL = [NSString stringWithFormat:@"ws://%@:%@@%@:%@/jsonrpc", p_username, p_password, p_hostAddress, p_port];
     
-    p_socket = [[SRWebSocket alloc] initWithURLRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:stringUrl]]];
+    
+    p_socket = [[SRWebSocket alloc] initWithURLRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:stringURL]]];
     p_socket.delegate = self;
     NSLog(@"Socket event : Atempting to connect to host at %@:%@", p_hostAddress, p_port);
     [p_socket open];
@@ -947,38 +994,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         case command:
             [self keyboardCommandsMapping:event];
             break;
-    }
-}
-
-- (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector {
-    if([control isEqual:self.inputTextTextField]) {
-        if (commandSelector == @selector(deleteBackward:)) {
-            if(self.inputTextTextField.stringValue.length == 0) {
-                [self sendInputExecuteActionBack:self];
-                return YES;
-            }
-        }
-        else if (commandSelector == @selector(insertNewline:)) {
-            [self sendInputSendText:self.inputTextTextField.stringValue andSubmit:YES];
-            [self.inputTextTextField setStringValue:@""];
-            return YES;
-        }
-    }
-    else if([control isEqual:self.hostAddress]) {
-        [self.view.window makeFirstResponder:self.port];
-    }
-    else if([control isEqual:self.port]) {
-        [self widgetDidEndEditing];
-    }
-    return NO;
-}
-
-- (void)controlTextDidChange:(NSNotification *)obj {
-    if([obj.object isEqual:self.inputTextTextField]) {
-        if(self.inputTextTextField.stringValue) {
-        }
-            
-        [self sendInputSendText:self.inputTextTextField.stringValue andSubmit:NO];
+        case settings:
+            break;
     }
 }
 
@@ -1076,6 +1093,47 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
         default:
             break;
     }
+}
+
+- (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector {
+
+    if([control isEqual:self.inputTextTextField]) {
+        if (commandSelector == @selector(deleteBackward:)) {
+            if(self.inputTextTextField.stringValue.length == 0) {
+                [self sendInputExecuteActionBack:self];
+                return YES;
+            }
+        }
+        else if (commandSelector == @selector(insertNewline:)) {
+            [self sendInputSendText:self.inputTextTextField.stringValue andSubmit:YES];
+            [self.inputTextTextField setStringValue:@""];
+            return YES;
+        }
+    }
+    else if(commandSelector == @selector(insertNewline:)) {
+        if([control isEqual:self.hostAddress]) {
+            [self.view.window makeFirstResponder:self.port];
+        }
+        else if([control isEqual:self.port]) {
+            [self.view.window makeFirstResponder:self.userTextField];
+        }
+        else if([control isEqual:self.userTextField]) {
+            if([self.userTextField.stringValue rangeOfString:@" " options:NSRegularExpressionSearch].location != NSNotFound)
+                self.userTextField.stringValue = @"";
+            [self.view.window makeFirstResponder:self.passwordTextField];
+        }
+        else if([control isEqual:self.passwordTextField]) {
+            if([self.userTextField.stringValue rangeOfString:@" " options:NSRegularExpressionSearch].location != NSNotFound)
+                self.passwordTextField.stringValue = @"";
+            [self widgetDidEndEditing];
+        }
+    }
+    return NO;
+}
+
+- (void)controlTextDidChange:(NSNotification *)obj {
+    if([obj.object isEqual:self.inputTextTextField])
+        [self sendInputSendText:self.inputTextTextField.stringValue andSubmit:NO];
 }
 
 - (void)handleStreamLink:(NSString *)link {

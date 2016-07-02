@@ -17,9 +17,11 @@
 #import <Cocoa/Cocoa.h>
 #import <SocketRocket/SRWebSocket.h>
 
-#define VERSION_NB "1.0"
-#define DEFAULT_ADDRESS "192.168.0.101"
+#define VERSION_NB "1.1"
+#define DEFAULT_ADDRESS "192.168.0.100"
 #define DEFAULT_PORT "9090"
+#define DEFAULT_USERNAME ""
+#define DEFAULT_PASSWORD ""
 
 @interface TodayViewController : NSViewController {
     SRWebSocket *p_socket;
@@ -57,7 +59,7 @@
 @property (weak) IBOutlet NSTextField *hostAddress;
 @property (weak) IBOutlet NSTextField *port;
 @property (weak) IBOutlet NSTextField *userTextField;
-@property (weak) IBOutlet NSTextField *passwordTextField;
+@property (weak) IBOutlet NSSecureTextField *passwordTextField;
 @property (weak) IBOutlet NSTextField *version;
 
 @end
