@@ -17,68 +17,191 @@
 #import "TodayViewController.h"
 #import <NotificationCenter/NotificationCenter.h>
 
-typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
-    textInput,
-    command,
-    settings
-};
+#define DEBUG_REQUEST_LOG
+//#define DEBUG_HEARTBEAT_LOG
+
+typedef NS_ENUM(NSInteger, KODI_PLAYER_ID);
+typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR);
+@interface KRPlaylistItem () {}
+@end
 
 
 @interface TodayViewController () <NCWidgetProviding, SRWebSocketDelegate, NSTextFieldDelegate> {
-    NSString *p_hostAddress;
-    NSString *p_port;
-    NSString *p_username;
-    NSString *p_password;
-    BOOL p_scheduleUpdate;
-    BOOL p_switchingItemInPlaylist;
-    NSInteger p_playerid;
-    double p_volumeLevel;
-    KeyboardBehaviour p_keyboardBehaviour;
-    NSMutableArray *p_playlistItems;
-    NSDate *p_lastPlaylistAdd;
-    NSString *p_currentItemLabel;
-    NSInteger p_currentItemPosition;
-    NSDate *p_lastRequestDate;
-    NSString *p_lastRequest;
-    NSTimeInterval p_itemDuration;
+    
+    /** Socket to kodi */
+    SRWebSocket        *p_socket;
+    /** //Kodi's address on the network */
+    NSString           *p_hostAddress;
+    /** Kodi's http port */
+    NSString           *p_port;                             
+    /** Kodi user's username */
+    NSString           *p_username;                         
+    /** Kodi user's password */
+    NSString           *p_password;                         
+    /** TRUE if an update of the player has been scheduled (in order to update the volume, player progress, etc ...) */
+    BOOL                p_isHeartbeatOn;
+    /** Curent kodi player's id */
+    KODI_PLAYER_ID      p_playerID;
+    /** Keyboard behavior in function of the current UI */
+    KEYBOARD_BEHAVIOR   p_keyboardBehaviour;
+    /** Date at the last add up in the current playlist */
+    NSDate             *p_lastPlaylistAddDate;
+    /** Date at the last request */
+    NSDate             *p_lastRequestDate;                  
+    /** String of the last request sent */
+    NSString           *p_lastRequestString;
 }
+
+@property (readwrite) BOOL                              isInitiated;
+@property (readwrite) BOOL                              isConected;
+@property (readwrite) double                            playerItemCurrentTimePercentage;
+@property (readwrite) KRPlayerItemTime                  playerItemCurrentTime;
+@property (readwrite) KRPlayerItemTime                  playerItemTotalTime;
+@property (readwrite) int                               playerSpeed;
+@property (readwrite) double                            applicationVolume;
+@property (readwrite) NSMutableArray                    *playlistItemsJson;
+@property (readwrite) NSMutableArray<KRPlaylistItem*>   *playlistItems;
+@property (readwrite) NSInteger                         currentItemPositionInPlaylist;
+@property (readwrite) BOOL                              switchingItemInPlaylist;
+@property (readwrite) BOOL                              isPlayerOn;
+@property (readwrite) BOOL                              isPlaying;
+@property (readwrite) BOOL                              isPlaylistOn;
 
 @property (readwrite) BOOL widgetAllowsEditing;
 
 @end
 
 
-@implementation TodayViewController
 
-- (instancetype)init {
+typedef NS_ENUM(NSInteger, KODI_PLAYER_ID) {
+    NONE = -1,
+    AUDIO = 0,
+    VIDEO = 1
+};
+
+typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
+    TEXT_INPUT,
+    COMMAND,
+    SETTINGS
+};
+
+@implementation KRPlaylistItem
+
+- (instancetype) initWithTitle:(NSString*) title {
     if ( self = [super init] ) {
-        [self fixDefaultsIfNeeded];
-        self.widgetAllowsEditing = YES;
-        p_scheduleUpdate = NO;
-        p_switchingItemInPlaylist = NO;
-        p_keyboardBehaviour = command;
-        p_playerid = -1;
-        p_currentItemPosition = -1;
-        p_lastPlaylistAdd = [NSDate date];
-        p_playlistItems = [NSMutableArray array];
-        [self loadSettings];
-        [self loadControlState];
-        self.preferredContentSize = CGSizeMake(0, 93);
-        [self.inputTextTextField setDelegate:self];
-        [self.hostAddress setDelegate:self];
-        [self.port setDelegate:self];
-        [self.userTextField setDelegate:self];
-        [self.passwordTextField setDelegate:self];
-        [self.view.window makeFirstResponder:self.view];
+        self.title = title;
     }
     return self;
 }
 
-- (void)widgetPerformUpdateWithCompletionHandler:(void (^)(NCUpdateResult result))completionHandler {
-    // Update your data and prepare for a snapshot. Call completion handler when you are done
-    // with NoData if nothing has changed or NewData if there is new data since the last
-    // time we called you
-    completionHandler(NCUpdateResultNoData);
+@synthesize title = _title;
+
+- (void)setTitle:(NSString *)title {
+    @synchronized (self) {
+        if(!_title)
+            _title = @"";
+        if(![title isEqualToString:@""])
+            _title = title;
+    }
+}
+
+- (NSString*)title {
+    NSString *title = nil;
+    @synchronized (self) {
+        title = _title;
+    }
+    return title;
+}
+
+@end
+
+
+@implementation TodayViewController
+
+
+/***** Settings *****/
+
+- (instancetype)init {
+    if ( self = [super init] ) {
+        [self fixDefaultsIfNeeded];
+        self.switchingItemInPlaylist = NO;
+        p_playerID = NONE;
+        self.currentItemPositionInPlaylist = -1;
+        p_lastPlaylistAddDate = [NSDate date];
+        self.playlistItemsJson = [NSMutableArray array];
+        self.playlistItems = [[NSMutableArray alloc] init];
+        p_isHeartbeatOn = NO;
+        [self loadSettings];
+        [self loadControlState];
+        
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(isInitiated))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(isConnected))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(playerItemCurrentTime))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(playerItemTotalTime))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(playerItemCurrentTimePercentage))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(playerSpeed))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(applicationVolume))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(playlistItems))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(currentItemPositionInPlaylist))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(switchingItemInPlaylist))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(isPlayerOn))
+                  options:0
+                  context:nil];
+        [self addObserver:self
+               forKeyPath:NSStringFromSelector(@selector(isPlaying))
+                  options:0
+                  context:nil];
+        
+        self.isInitiated = YES;
+    }
+    return self;
+}
+
+- (void)reset {
+    if(p_socket.readyState == 1) {
+        [p_socket close];
+    }
+    [self fixDefaultsIfNeeded];
+    self.switchingItemInPlaylist = NO;
+    p_playerID = NONE;
+    self.currentItemPositionInPlaylist = -1;
+    p_lastPlaylistAddDate = [NSDate date];
+    self.playlistItemsJson = [NSMutableArray array];
+    p_isHeartbeatOn = NO;
+    [self loadSettings];
+    [self loadControlState];
+    [self connectToKodi];
 }
 
 - (void)fixDefaultsIfNeeded {
@@ -113,45 +236,45 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     [self fixDefaultsIfNeeded];
     
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
-    [shared setObject:self.hostAddress.stringValue forKey:@"host"];
-    [shared setObject:self.port.stringValue forKey:@"port"];
-    [shared setObject:self.userTextField.stringValue forKey:@"username"];
-    [shared setObject:self.passwordTextField.stringValue forKey:@"password"];
+    [shared setObject:self.xib_hostAddressTextField.stringValue forKey:@"host"];
+    [shared setObject:self.xib_portTextField.stringValue forKey:@"port"];
+    [shared setObject:self.xib_userTextField.stringValue forKey:@"username"];
+    [shared setObject:self.xib_passwordTextField.stringValue forKey:@"password"];
     [shared synchronize];
     
-    p_hostAddress = self.hostAddress.stringValue;
-    p_port = self.port.stringValue;
-    p_username = self.userTextField.stringValue;
-    p_password = self.passwordTextField.stringValue;
+    p_hostAddress = self.xib_hostAddressTextField.stringValue;
+    p_port = self.xib_portTextField.stringValue;
+    p_username = self.xib_userTextField.stringValue;
+    p_password = self.xib_passwordTextField.stringValue;
 }
 
 - (void)loadSettings {
     [self fixDefaultsIfNeeded];
-    [self.version setStringValue:[NSString stringWithFormat:@"v. %@", @VERSION_NB]];
+    [self.xib_versionTitle setStringValue:[NSString stringWithFormat:@"v. %@", @VERSION_NB]];
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
-    if(p_hostAddress != nil) [self.hostAddress setStringValue:p_hostAddress];
+    if(p_hostAddress != nil) [self.xib_hostAddressTextField setStringValue:p_hostAddress];
     else {
         NSString *savedHostAddress = [shared objectForKey:@"host"];
-        if(savedHostAddress != nil)[self.hostAddress setStringValue:savedHostAddress];
-        else [self.hostAddress setStringValue:@DEFAULT_ADDRESS];
+        if(savedHostAddress != nil)[self.xib_hostAddressTextField setStringValue:savedHostAddress];
+        else [self.xib_hostAddressTextField setStringValue:@DEFAULT_ADDRESS];
     }
-    if(p_port != nil) [self.port setStringValue:p_port];
+    if(p_port != nil) [self.xib_portTextField setStringValue:p_port];
     else {
         NSString *savedPortAddress = [shared objectForKey:@"port"];
-        if(savedPortAddress != nil)[self.port setStringValue:savedPortAddress];
-        else [self.port setStringValue:@DEFAULT_PORT];
+        if(savedPortAddress != nil)[self.xib_portTextField setStringValue:savedPortAddress];
+        else [self.xib_portTextField setStringValue:@DEFAULT_PORT];
     }
-    if(p_username != nil) [self.userTextField setStringValue:p_username];
+    if(p_username != nil) [self.xib_userTextField setStringValue:p_username];
     else {
         NSString *savedUsername = [shared objectForKey:@"username"];
-        if(savedUsername != nil)[self.userTextField setStringValue:savedUsername];
-        else [self.userTextField setStringValue:@DEFAULT_USERNAME];
+        if(savedUsername != nil)[self.xib_userTextField setStringValue:savedUsername];
+        else [self.xib_userTextField setStringValue:@DEFAULT_USERNAME];
     }
-    if(p_password != nil) [self.passwordTextField setStringValue:p_password];
+    if(p_password != nil) [self.xib_passwordTextField setStringValue:p_password];
     else {
         NSString *savedPassword = [shared objectForKey:@"password"];
-        if(savedPassword != nil)[self.passwordTextField setStringValue:savedPassword];
-        else [self.passwordTextField setStringValue:@DEFAULT_USERNAME];
+        if(savedPassword != nil)[self.xib_passwordTextField setStringValue:savedPassword];
+        else [self.xib_passwordTextField setStringValue:@DEFAULT_USERNAME];
     }
 }
 
@@ -169,13 +292,33 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 //        p_keyboardBehaviour = [d_keyboardBehaviour intValue];
 }
 
+- (void)setPlayerHeartbeat:(BOOL)status {
+    if(status && p_isHeartbeatOn)
+        return;
+    p_isHeartbeatOn = status;
+    [self playerHeartbeat];
+}
+
+- (void)playerHeartbeat {
+    if(p_isHeartbeatOn) {
+        [self requestPlayerGetPropertiesPercentageSpeed];
+        [self requestPlayerGetActivePlayers];
+        
+        [NSTimer scheduledTimerWithTimeInterval:1.0
+                                         target:self
+                                       selector:@selector(playerHeartbeat)
+                                       userInfo:nil
+                                        repeats:NO];
+    }
+}
+
 
 /***** UI updates *****/
 
 - (void)viewDidAppear {
-    [self setEnabledPlayerControls:NO];
+    [self ui_enablePlayerControls:NO];
     [self connectToKodi];
-    [self setEnabledInterface:NO];
+    [self ui_enableInterface:NO];
     if(p_hostAddress == nil)
        [self widgetDidBeginEditing];
 }
@@ -183,32 +326,40 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 - (void)viewDidDisappear {
     [self saveControlState];
     [p_socket close];
-    p_scheduleUpdate = NO;
+    [self setPlayerHeartbeat:NO];
 }
 
 - (void)widgetDidBeginEditing {
+    [self setPlayerHeartbeat:NO];
     [p_socket close];
-    [self.mainView setHidden:YES];
-    [self setEnabledPlaylistControls:NO];
+    [self.xib_mainView setHidden:YES];
+    [self ui_showPlaylistControls:NO];
     
-    p_keyboardBehaviour = settings;
+    p_keyboardBehaviour = SETTINGS;
     
-    [self.settingsView setHidden:NO];
+    [self.xib_settingsView setHidden:NO];
     [self loadSettings];
-    [self.view.window makeFirstResponder:self.hostAddress];
+    [self.view.window makeFirstResponder:self.xib_hostAddressTextField];
 }
 
 - (void)widgetDidEndEditing {
     [self saveSettings];
     
-    p_keyboardBehaviour = command;
+    p_keyboardBehaviour = COMMAND;
     
-    [self.mainView setHidden:NO];
-    if(p_playlistItems && [p_playlistItems count] > 1)
-        [self setEnabledPlaylistControls:YES];
-    [self.settingsView setHidden:YES];
+    [self.xib_mainView setHidden:NO];
+    [self.xib_settingsView setHidden:YES];
     [self.view.window makeFirstResponder:self.view];
-    [self connectToKodi];
+    [self reset];
+//    [self connectToKodi];
+//    [self setPlayerHeartbeat:YES];
+}
+
+- (void)widgetPerformUpdateWithCompletionHandler:(void (^)(NCUpdateResult result))completionHandler {
+    // Update your data and prepare for a snapshot. Call completion handler when you are done
+    // with NoData if nothing has changed or NewData if there is new data since the last
+    // time we called you
+    completionHandler(NCUpdateResultNoData);
 }
 
 
@@ -257,20 +408,20 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)webSocketDidOpen:(SRWebSocket *)webSocket {
     NSLog(@"Socket event : connected");
-    [self setEnabledInterface:YES];
-    [self requestPlayerGetActivePlayers:self];
-    [self requestApplicationVolume:self];
+    [self setPlayerHeartbeat:YES];
+    [self requestApplicationVolume];
+    self.isConnected = YES;
 }
 
 - (void)webSocket:(SRWebSocket *)webSocket didFailWithError:(NSError *)error {
     NSLog(@"Socket error : %@", error.description);
-    [self setEnabledInterface:NO];
+    [self ui_enableInterface:NO];
 }
 
 - (void)webSocket:(SRWebSocket *)webSocket didCloseWithCode:(NSInteger)code
            reason:(NSString *)reason wasClean:(BOOL)wasClean {
     NSLog(@"Socket event : closed");
-    [self setEnabledInterface:NO];
+    self.isConnected = NO;
 }
 
 - (void)webSocket:(SRWebSocket *)webSocket didReceiveMessage:(id)data {
@@ -284,7 +435,7 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     else {
         NSString *sRequestId = [message valueForKey:@"id"];
         
-        //Responses to a request from Kodi
+        //Responses to a request earlier sent to Kodi
         if([sRequestId isNotEqualTo:[NSNull null]]) {
             int requestId = [sRequestId intValue];
             NSArray *result = [message valueForKey:@"result"];
@@ -298,6 +449,9 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
                         NSLog(@"Incoming message : %@", data);
                         break;
                     case 1:
+#ifdef DEBUG_HEARTBEAT_LOG
+                        NSLog(@"Incoming message : %@", data);
+#endif
                         [self handlePlayerGetPropertiesPercentageSpeed:result];
                         break;
                     case 2:
@@ -313,6 +467,9 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
                         [self handlePlayerGetItem:result];
                         break;
                     case 5:
+#ifdef DEBUG_HEARTBEAT_LOG
+                        NSLog(@"Incoming message : %@", data);
+#endif
                         [self handlePlayerGetActivePlayers:result];
                         break;
                     case 6:
@@ -360,14 +517,13 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     }
 }
 
-- (void)remoteRequest:(NSString *)request withLog:(BOOL)log {
-    if(p_socket.readyState != 1) {
+- (void)remoteRequest:(NSString *)request{
+    if(p_socket.readyState == SR_CLOSED) {
         [self connectToKodi];
     }
-    else {
-        if(log) NSLog(@"Sending request : %@", request);
+    else if(p_socket.readyState == SR_OPEN) {
         p_lastRequestDate = [NSDate date];
-        p_lastRequest = request;
+        p_lastRequestString = [NSString stringWithString:request];
         [p_socket send:request];
     }
 }
@@ -375,295 +531,269 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 /***** Kodi commands *****/
 
-- (IBAction)sendInputDown:(id)sender {
+- (void)sendInputDown {
     //Input.Down
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.Down\"}"];
-    [self remoteRequest:request withLog:YES];
-    [self.godownButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.godownButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputLeft:(id)sender {
+- (void)sendInputLeft {
     //Input.Left
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.Left\"}"];
-    [self remoteRequest:request withLog:YES];
-    [self.goleftButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.goleftButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputRight:(id)sender {
+- (void)sendInputRight {
     //Input.Right
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.Right\"}"];
-    [self remoteRequest:request withLog:YES];
-    [self.gorightButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.gorightButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputUp:(id)sender {
+- (void)sendInputUp {
     //Input.Up
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.Up\"}"];
-    [self remoteRequest:request withLog:YES];
-    [self.goupButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.goupButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputSelect:(id)sender {
+- (void)sendInputSelect {
     //Input.Select
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.Select\"}"];
-    [self remoteRequest:request withLog:YES];
-    [self.selectButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.selectButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputExecuteActionBack:(id)sender {
+- (void)sendInputExecuteActionBack {
     //Input.ExecuteAction back
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.ExecuteAction\",\"params\":{\"action\":\"back\"}}"];
-    [self remoteRequest:request withLog:YES];
-    [self.backButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.backButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputExecuteActionContextMenu:(id)sender {
+- (void)sendInputExecuteActionContextMenu {
     //Input.ExecuteAction contextmenu
     //Input.ShowOSD
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.ExecuteAction\",\"params\":{\"action\":\"contextmenu\"},\"id\":0}"];
-    [self remoteRequest:request withLog:YES];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
     request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.ShowOSD\"}"];
-    [self remoteRequest:request withLog:YES];
-    [self.menuButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.menuButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputInfo:(id)sender {
+- (void)sendInputInfo {
     //Input.Info
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.Info\"}"];
-    [self remoteRequest:request withLog:YES];
-    [self.infoButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.infoButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputHome:(id)sender {
+- (void)sendInputHome {
     //Input.Home
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.Home\"}"];
-    [self remoteRequest:request withLog:YES];
-    [self.homeButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.homeButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputExecuteActionPause:(id)sender {
+- (void)sendInputExecuteActionPause {
     //Input.ExecuteAction pause
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.ExecuteAction\",\"params\":{\"action\":\"pause\"}}"];
-    [self remoteRequest:request withLog:YES];
-    [self.playButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.playButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendInputExecuteActionStop:(id)sender {
+- (void)sendInputExecuteActionStop {
     //Input.ExecuteAction stop
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.ExecuteAction\",\"params\":{\"action\":\"stop\"}}"];
-    [self remoteRequest:request withLog:YES];
-    [self.stopButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.stopButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendApplicationSetVolume:(id)sender {
+- (void)sendApplicationSetVolume:(int)volume {
     //Application.SetVolume
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Application.SetVolume\",\"params\":{\"volume\":%i}}", self.volumeLevel.intValue];
-    [self remoteRequest:request withLog:YES];
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Application.SetVolume\",\"params\":{\"volume\":%i}}", volume];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendApplicationSetVolumeIncrement:(id)sender {
-    //Application.SetVolume p_volumeLevel+5
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Application.SetVolume\",\"params\":{\"volume\":%i}}", (int)p_volumeLevel+5];
-    [self remoteRequest:request withLog:YES];
+- (void)sendApplicationSetVolumeIncrement {
+    //Application.SetVolume applicationVolume+5
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Application.SetVolume\",\"params\":{\"volume\":%i}}", (int)self.applicationVolume+5];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendApplicationSetVolumeDecrement:(id)sender {
-    //Application.SetVolume p_volumeLevel-5
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Application.SetVolume\",\"params\":{\"volume\":%i}}", (int)p_volumeLevel-5];
-    [self remoteRequest:request withLog:YES];
+- (void)sendApplicationSetVolumeDecrement {
+    //Application.SetVolume self.applicationVolume-5
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Application.SetVolume\",\"params\":{\"volume\":%i}}", (int)self.applicationVolume-5];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendPlayerOpenVideo:(id)sender {
+- (void)sendPlayerOpenVideo {
     //Player.Open
     NSString *request = @"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Open\",\"params\":{\"item\":{\"playlistid\":1}}}";
-    [self remoteRequest:request withLog:YES];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendPlaylistAddVideo:(id)sender streamLink:(NSString *)link {
+- (void)sendPlaylistAddVideoStreamLink:(NSString *)link {
     //Playlist.Add
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Playlist.Add\",\"params\":{\"playlistid\":1, \"item\":{\"file\":\"%@\"}}}", link];
-    [self remoteRequest:request withLog:YES];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendPlaylistClearVideo:(id)sender {
+- (void)sendPlaylistClearVideo {
     //Playlist.Clear
     NSString *request = @"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Playlist.Clear\",\"params\":{\"playlistid\":1}}";
-    [self remoteRequest:request withLog:YES];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendPlayerSeek:(id)sender {
+- (void)sendPlayerSeek:(int)percentage {
     //Player.Seek
-    NSEvent *event = [[NSApplication sharedApplication] currentEvent];
-    if(event.type == NSLeftMouseDragged) {
-        long itemDurationH = p_itemDuration/3600;
-        long itemDurationM = fmod(p_itemDuration, 3600)/60;
-        long itemDurationS = fmod(p_itemDuration, 60);
-        NSTimeInterval itemSeek = p_itemDuration*((double)self.playerProgressBar.intValue/100);
-        long itemSeekH = itemSeek/3600;
-        long itemSeekM = fmod(itemSeek, 3600)/60;
-        long itemSeekS = fmod(itemSeek, 60) ;
-        [self.playerProgressTime setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld/%ld:%02ld:%02ld",
-                                                 itemSeekH,
-                                                 itemSeekM,
-                                                 itemSeekS,
-                                                 itemDurationH,
-                                                 itemDurationM,
-                                                 itemDurationS]];
-    }
-    
-    if(event.type == NSLeftMouseUp) {
-        NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":%i}}", p_playerid, self.playerProgressBar.intValue];
-        [self remoteRequest:request withLog:YES];
-    }
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":%i}}", p_playerID, percentage];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendPlayerSeekForward:(id)sender {
+- (void)sendPlayerSeekForward {
     //Player.Seek
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":\"smallforward\"}}", p_playerid];
-    [self remoteRequest:request withLog:YES];
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":\"smallforward\"}}", p_playerID];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendPlayerSeekBackward:(id)sender {
+- (void)sendPlayerSeekBackward {
     //Player.Seek
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":\"smallbackward\"}}", p_playerid];
-    [self remoteRequest:request withLog:YES];
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.Seek\",\"params\":{\"playerid\":%ld,\"value\":\"smallbackward\"}}", p_playerID];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendPlayerMarkAsWatched:(id)sender {
-    [self sendInputExecuteActionContextMenu:self];
+- (void)sendPlayerMarkAsWatched {
+    [self sendInputExecuteActionContextMenu];
     for (int i = 0; i<4; i++) {
-        [self sendInputDown:self];
+        [self sendInputDown];
     }
-    [self sendInputSelect:self];
+    [self sendInputSelect];
 }
 
-- (IBAction)sendPlayerSetSpeed:(id)sender {
+- (void)sendPlayerSetSpeed:(int)speed {
     //Player.SetSpeed
-    NSEvent *event = [[NSApplication sharedApplication] currentEvent];
-    BOOL endingDrag = event.type == NSLeftMouseUp;
+    int lc_speed;
+    if(speed == 0)
+        lc_speed = 0;
+    else
+        lc_speed = (int)pow(2,abs(speed))*(speed/abs(speed)); //[1]=2 [2]=4 [3]=8 [4]=16 [5]=32
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.SetSpeed\",\"params\":{\"playerid\":%ld,\"speed\":%i}}", p_playerID, lc_speed];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
+}
+
+- (void)sendPlayerGoToPrevious {
+    //Player.GoTo
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.GoTo\",\"params\":{\"playerid\":%ld,\"to\":\"previous\"}}", p_playerID];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
+}
+
+- (void)sendPlayerGoToNext {
+    //Player.GoTo
+    if(self.switchingItemInPlaylist) return;
+    self.switchingItemInPlaylist = YES;
+    self.currentItemPositionInPlaylist++;
     
-    int speed = 1;
-    if(self.speedLevel.intValue != 0 && !endingDrag)
-        speed = (int)pow(2,abs(self.speedLevel.intValue))*(self.speedLevel.intValue/abs(self.speedLevel.intValue));
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.SetSpeed\",\"params\":{\"playerid\":%ld,\"speed\":%i}}", p_playerid, speed];
-    [self remoteRequest:request withLog:YES];
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.GoTo\",\"params\":{\"playerid\":%ld,\"to\":\"next\"}}", p_playerID];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
+}
+
+- (void)sendPlayerGoTo:(int)playlistItemId {
+    //Player.GoTo
+    if(self.switchingItemInPlaylist) return;
+    self.switchingItemInPlaylist = YES;
+    if(self.currentItemPositionInPlaylist == playlistItemId) {
+        self.switchingItemInPlaylist = NO;
+        return;
+    }
+    self.currentItemPositionInPlaylist = playlistItemId;
     
-    if (endingDrag)
-        [self.speedLevel setIntegerValue:0];
+    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.GoTo\",\"params\":{\"playerid\":%ld,\"to\":%d}}", p_playerID, (int)self.currentItemPositionInPlaylist];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendPlayerGoToPrevious:(id)sender {
-    //Player.GoTo
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.GoTo\",\"params\":{\"playerid\":%ld,\"to\":\"previous\"}}", p_playerid];
-    [self remoteRequest:request withLog:YES];
-    [self.nextPlaylistItemButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.nextPlaylistItemButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
-}
-
-- (IBAction)sendPlayerGoToNext:(id)sender {
-    //Player.GoTo
-    if(p_switchingItemInPlaylist) return;
-    p_switchingItemInPlaylist = YES;
-    [self.nextPlaylistItemButton setEnabled:NO];
-    [self.playlistCombo setEnabled:NO];
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.GoTo\",\"params\":{\"playerid\":%ld,\"to\":\"next\"}}", p_playerid];
-    [self remoteRequest:request withLog:YES];
-    [self.nextPlaylistItemButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.nextPlaylistItemButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
-}
-
-- (IBAction)sendPlayerGoTo:(NSPopUpButton*)sender {
-    //Player.GoTo
-    if(p_switchingItemInPlaylist) return;
-    p_switchingItemInPlaylist = YES;
-    [self.nextPlaylistItemButton setEnabled:NO];
-    [self.playlistCombo setEnabled:NO];
-    if(p_currentItemPosition == [sender indexOfSelectedItem]) return;
-    p_currentItemPosition = [sender indexOfSelectedItem];
-    NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Player.GoTo\",\"params\":{\"playerid\":%ld,\"to\":%d}}", p_playerid, (int)p_currentItemPosition];
-    [self remoteRequest:request withLog:YES];
-    [self.nextPlaylistItemButton highlight:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.1
-                                     target:self.nextPlaylistItemButton
-                                   selector:@selector(highlight:)
-                                   userInfo:nil
-                                    repeats:NO];
-}
-
-- (IBAction)sendSystemReboot:(id)sender {
+- (void)sendSystemReboot {
     //System.Reboot
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"System.Reboot\"}"];
-    [self remoteRequest:request withLog:YES];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (IBAction)sendVideoLibraryScan:(id)sender {
+- (void)sendVideoLibraryScan {
     //VideoLibrary.Scan
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"VideoLibrary.Scan\"}"];
-    [self remoteRequest:request withLog:YES];
-    
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
 - (void)sendInputSendText:(NSString *)string andSubmit:(BOOL)submit {
@@ -673,45 +803,73 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     if (submit) done = @"true";
     else done = @"false";
     NSString *request = [NSString stringWithFormat:@"{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"Input.SendText\",\"params\":{\"text\":\"%@\",\"done\":%@}}", safeString, done];
-    [self remoteRequest:request withLog:YES];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (void)requestApplicationVolume:(id)sender {
+- (void)requestApplicationVolume {
     //Application.GetProperties
     NSString *request = [NSString stringWithFormat:@"{\"id\":2,\"jsonrpc\":\"2.0\",\"method\":\"Application.GetProperties\",\"params\":{\"properties\":[\"volume\"]}}"];
-    [self remoteRequest:request withLog:YES];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (void)requestPlayerGetPropertiesPercentageSpeed:(id)sender {
+- (void)requestPlayerGetPropertiesPercentageSpeed {
     //Player.GetProperties
-    if (p_playerid == -1) return;
-    NSString *request = [NSString stringWithFormat:@"{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetProperties\",\"params\":{\"playerid\":%ld,\"properties\":[\"time\",\"totaltime\",\"percentage\",\"speed\"]}}", p_playerid];
-    [self remoteRequest:request withLog:NO];
+    if (p_playerID == NONE) return;
+    NSString *request = [NSString stringWithFormat:@"{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetProperties\",\"params\":{\"playerid\":%ld,\"properties\":[\"time\",\"totaltime\",\"percentage\",\"speed\"]}}", p_playerID];
+    [self remoteRequest:request];
+#ifdef DEBUG_HEARTBEAT_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
 - (void)requestPlayerGetPropertiesPlaylistPosition {
     //Player.GetProperties
-    if (p_playerid == -1) return;
-    NSString *request = [NSString stringWithFormat:@"{\"id\":6,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetProperties\",\"params\":{\"playerid\":%ld,\"properties\":[\"position\"]}}", p_playerid];
-    [self remoteRequest:request withLog:YES];
+    if (p_playerID == -1) return;
+    NSString *request = [NSString stringWithFormat:@"{\"id\":6,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetProperties\",\"params\":{\"playerid\":%ld,\"properties\":[\"position\"]}}", p_playerID];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
 - (void)requestPlayerGetItem {
     //Player.GetItem
-    NSString *request = [NSString stringWithFormat:@"{\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetItem\",\"params\":{\"playerid\":%ld}}", p_playerid];
-    [self remoteRequest:request withLog:YES];
+    NSString *request = [NSString stringWithFormat:@"{\"id\":4,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetItem\",\"params\":{\"playerid\":%ld}}", p_playerID];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (void)requestPlaylistGetItems:(id)sender {
+- (void)requestPlaylistGetItems {
     //Playlist.GetItems
-    NSString *request = [NSString stringWithFormat:@"{\"id\":3,\"jsonrpc\":\"2.0\",\"method\":\"Playlist.GetItems\",\"params\":{\"playlistid\":%ld}}", p_playerid];
-    [self remoteRequest:request withLog:YES];
+    NSString *request = [NSString stringWithFormat:@"{\"id\":3,\"jsonrpc\":\"2.0\",\"method\":\"Playlist.GetItems\",\"params\":{\"playlistid\":%ld}}", p_playerID];
+    [self remoteRequest:request];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",request);
+#endif
 }
 
-- (void)requestPlayerGetActivePlayers:(id)sender {
+- (void)requestPlayerGetActivePlayers {
     //Player.GetActivePlayers
     NSString *request = [NSString stringWithFormat:@"{\"id\":5,\"jsonrpc\":\"2.0\",\"method\":\"Player.GetActivePlayers\"}"];
-    [self remoteRequest:request withLog:NO];
+    [self remoteRequest:request];
+#ifdef DEBUG_HEARTBEAT_LOG
+    NSLog(@"%@",request);
+#endif
+}
+
+- (void)requestLastRequest {
+    [self remoteRequest:p_lastRequestString];
+#ifdef DEBUG_REQUEST_LOG
+    NSLog(@"%@",p_lastRequestString);
+#endif
 }
 
 
@@ -723,263 +881,612 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (void)handleApplicationVolume:(NSArray*)params {
     //Response to Application.GetProperties
-    p_volumeLevel = [[params valueForKey:@"volume"] doubleValue];
-    [self.volumeLevel setDoubleValue:p_volumeLevel];
+    self.applicationVolume = [[params valueForKey:@"volume"] doubleValue];
 }
 
 - (void)handlePlayerGetPropertiesPercentageSpeed:(NSArray*)params {
     //Response to Player.GetProperties Percentage Speed
-    [self setEnabledPlayerControls:YES];
-    
-    //update progressbar
-    [self.playerProgressBar setEnabled:YES];
     NSArray *time = [params valueForKey:@"time"];
     NSArray *totalTime = [params valueForKey:@"totaltime"];
-    [self.playerProgressTime setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld/%ld:%02ld:%02ld",
-                                             [[time valueForKey:@"hours"] longValue],
-                                             [[time valueForKey:@"minutes"] longValue],
-                                             [[time valueForKey:@"seconds"] longValue],
-                                             [[totalTime valueForKey:@"hours"] longValue],
-                                             [[totalTime valueForKey:@"minutes"] longValue],
-                                             [[totalTime valueForKey:@"seconds"] longValue]]];
-    [self.playerProgressBar setDoubleValue:[[params valueForKey:@"percentage"] doubleValue]];
     
-    p_itemDuration = 0;
-    p_itemDuration += [[totalTime valueForKey:@"hours"] longValue]*3600;
-    p_itemDuration += [[totalTime valueForKey:@"minutes"] longValue]*60;
-    p_itemDuration += [[totalTime valueForKey:@"seconds"] longValue];
+    KRPlayerItemTime localPlayerItemCurrentTime;
+    localPlayerItemCurrentTime.hours    = [[time valueForKey:@"hours"] longValue];
+    localPlayerItemCurrentTime.minutes  = [[time valueForKey:@"minutes"] longValue];
+    localPlayerItemCurrentTime.seconds  = [[time valueForKey:@"seconds"] longValue];
     
+    KRPlayerItemTime localPlayerItemTotalTime;
+    localPlayerItemTotalTime.hours      = [[totalTime valueForKey:@"hours"] longValue];
+    localPlayerItemTotalTime.minutes    = [[totalTime valueForKey:@"minutes"] longValue];
+    localPlayerItemTotalTime.seconds    = [[totalTime valueForKey:@"seconds"] longValue];
     
-    if([[params valueForKey:@"speed"] integerValue] == 0)
-        [self.playButton setImage:[NSImage imageNamed:@"play"]];
-    else
-        [self.playButton setImage:[NSImage imageNamed:@"pause"]];
-}
-
-- (void)handlePlaylistGetItems:(NSArray*)params {
-    //Response to Playlist.GetItems
-    p_playlistItems = [NSMutableArray arrayWithArray:[params valueForKey:@"items"]];
-    
-    if(p_playlistItems && [p_playlistItems count] > 1) {
-        if(p_currentItemPosition == -1) p_currentItemPosition = 0;
-        NSInteger itemPosition = 0;
-        [self.playlistCombo removeAllItems];
-        
-        //populating playlist's interface nspopupbutton
-        for(NSDictionary *playListItem in p_playlistItems) {
-            itemPosition++;
-            NSString *itemTitle = [playListItem valueForKey:@"label"];
-            [self addItemToPlaylistView:itemTitle withPosition:itemPosition];
-        }
-        [self.playlistCombo selectItemAtIndex:p_currentItemPosition];
-        [self setEnabledPlaylistControls:YES];
-        [self requestPlayerGetItem];
-    }
-    else
-        [self setEnabledPlaylistControls:NO];
-}
-
-- (void)handlePlayerGetItem:(NSArray*)params {
-    //Response to Player.GetItem
-    p_currentItemLabel = [[params valueForKey:@"item"] valueForKey:@"label"];
-    
-    if(p_currentItemPosition != -1)
-        [self requestPlayerGetPropertiesPlaylistPosition];
-}
-
-- (void)handlePlayerGetPropertiesPlaylistPosition:(NSArray*)params {
-    //Response to Player.GetProperties PlaylistPosition
-    p_currentItemPosition = [[params valueForKey:@"position"] doubleValue];
-    [self.playlistCombo selectItemAtIndex:p_currentItemPosition];
-    if(p_currentItemLabel)
-        [[self.playlistCombo selectedItem] setTitle:[NSString stringWithFormat:@"%02ld. %@", p_currentItemPosition+1, p_currentItemLabel]];
-}
-
-- (void)handlePlayerGetActivePlayers:(NSArray*)params {
-    //Response to Player.GetItem
-    if([params count] == 0) return;
-    
-    NSInteger oldPlayerId = p_playerid;
-    p_playerid = [[[params firstObject] valueForKey:@"playerid"] integerValue];
-    
-    if(p_playerid != oldPlayerId)
-        [self requestPlaylistGetItems:self];
-    
-    [self requestPlayerGetPropertiesPercentageSpeed:self];
-    
-    //schedule next update
-    if(!p_scheduleUpdate) {
-        p_scheduleUpdate = YES;
-        [NSTimer scheduledTimerWithTimeInterval:1.0
-                                         target:self
-                                       selector:@selector(handlePlayerGetActivePlayers_scheduled:)
-                                       userInfo:nil
-                                        repeats:NO];
-    }
-}
-
-- (void)handlePlayerGetActivePlayers_scheduled:(NSTimer *)timer {
-    if(!timer || !p_scheduleUpdate || p_socket.readyState != 1) return;
-    p_scheduleUpdate = NO;
-    [self requestPlayerGetActivePlayers:self];
-}
-
-- (void)handlePlayerOnPlay:(NSArray*)params {
-    p_playerid = [[[[params valueForKey:@"data"] valueForKey:@"player"] valueForKey:@"playerid"] integerValue];
-    p_currentItemLabel = [[[params valueForKey:@"data"] valueForKey:@"item"] valueForKey:@"title"];
-    p_switchingItemInPlaylist = NO;
-    [self.nextPlaylistItemButton setEnabled:YES];
-    [self.playlistCombo setEnabled:YES];
-    [self setEnabledPlayerControls:YES];
-    
-    if([p_playlistItems count] == 0) { //in case the player is open between onAdd and onPlay
-        [p_playlistItems addObject:[[params valueForKey:@"data"] valueForKey:@"item"]];
-        [self addItemToPlaylistView:p_currentItemLabel withPosition:1];
-    }
-    
-    [self requestPlayerGetActivePlayers:self];
-    
-    if(!p_currentItemLabel || !p_playlistItems) //no current label = playlist titles missings
-        [self requestPlaylistGetItems:self];
-    else if(p_currentItemPosition != -1)
-        [self requestPlayerGetPropertiesPlaylistPosition];
-}
-
-- (void)handlePlayerOnPause {
-}
-
-- (void)handlePlayerOnStop:(NSArray*)params {
-    [self setEnabledPlayerControls:NO];
-    p_currentItemLabel = nil;
-    p_playerid = -1;
-    p_scheduleUpdate = NO;
-    if(!params || ![[[params valueForKey:@"data"] valueForKey:@"end"] boolValue]) {
-        [self setEnabledPlaylistControls:NO];
-        [self.playlistCombo removeAllItems];
-        p_playlistItems = nil;
-    }
+    self.playerItemCurrentTime = localPlayerItemCurrentTime;
+    if(localPlayerItemTotalTime.hours != self.playerItemTotalTime.hours ||
+       localPlayerItemTotalTime.minutes != self.playerItemTotalTime.minutes ||
+       localPlayerItemTotalTime.seconds != self.playerItemTotalTime.seconds)
+        self.playerItemTotalTime = localPlayerItemTotalTime;
+    self.playerItemCurrentTimePercentage = [[params valueForKey:@"percentage"] doubleValue];
+    self.playerSpeed = [[params valueForKey:@"speed"] intValue];
 }
 
 - (void)handleInputOnInputRequested:(NSArray*)params {
-    p_keyboardBehaviour = textInput;
-    [self setEnabledNavigationArrows:NO];
-    [self.textView setHidden:NO];
-    [self.view.window makeFirstResponder:self.inputTextTextField];
-    [self.playerView setHidden:YES];
+    
+    //UI update
+    p_keyboardBehaviour = TEXT_INPUT;
+    [self ui_enableNavigationControls:NO];
+    [self.xib_textView setHidden:NO];
+    [self.view.window makeFirstResponder:self.xib_inputTextToKodiTextField];
+    [self.xib_playerView setHidden:YES];
 }
 
 - (void)handleInputOnInputFinished {
-    p_keyboardBehaviour = command;
-    [self setEnabledNavigationArrows:YES];
+    
+    //UI update
+    p_keyboardBehaviour = COMMAND;
+    [self ui_enableNavigationControls:YES];
     [self.view.window makeFirstResponder:self.view];
-    [self.textView setHidden:YES];
-    [self.playerView setHidden:NO];
-}
-
-- (void)handlePlaylistOnClear {
-    [p_playlistItems removeAllObjects];
-    p_currentItemPosition = -1;
-    p_currentItemLabel = nil;
-    p_playerid = -1;
-}
-
-- (void)handlePlaylistOnAdd:(NSArray*)params {
-    if(p_currentItemPosition == -1) {
-        p_currentItemPosition = 0;
-    }
-    
-    p_playerid = [[[params valueForKey:@"data"] valueForKey:@"playlistid"] integerValue];
-    
-    NSDictionary *item = [[params valueForKey:@"data"] valueForKey:@"item"];
-    NSString *itemTitle = [item valueForKey:@"title"];
-    NSInteger itemPosition = [[[params valueForKey:@"data"] valueForKey:@"position"] integerValue];
-    
-    if(!p_playlistItems) p_playlistItems = [NSMutableArray array];
-    [p_playlistItems addObject:item];
-    if([p_playlistItems count] > 1)
-        [self setEnabledPlaylistControls:YES];
-    
-    [self addItemToPlaylistView:itemTitle withPosition:itemPosition+1];
+    [self.xib_textView setHidden:YES];
+    [self.xib_playerView setHidden:NO];
 }
 
 - (void)handleApplicationOnVolumeChanged:(NSArray*)params {
-    p_volumeLevel = [[[params valueForKey:@"data"] valueForKey:@"volume"] doubleValue];
-    [self.volumeLevel setIntegerValue:(NSInteger)p_volumeLevel];
+    self.applicationVolume = [[[params valueForKey:@"data"] valueForKey:@"volume"] doubleValue];
 }
 
 - (void)handleGUIOnScreenSaverDeactivated {
     if (p_lastRequestDate && [[NSDate date] timeIntervalSinceDate:p_lastRequestDate] < 2
-        && ![p_lastRequest containsString:@"Playlist.Add"]) {
-        [self remoteRequest:p_lastRequest withLog:YES];
+        && ![p_lastRequestString containsString:@"Player.Open"]
+        && ![p_lastRequestString containsString:@"Playlist.Add"]) {
+        [self requestLastRequest];
     }
 }
 
+- (void)handlePlayerGetPropertiesPlaylistPosition:(NSArray*)params {
+    self.currentItemPositionInPlaylist = [[params valueForKey:@"position"] doubleValue];
+    [self requestPlayerGetItem];
+}
+
+- (void)handlePlayerGetItem:(NSArray*)params {
+    NSString * itemLabel = [[params valueForKey:@"item"] valueForKey:@"label"];
+    [self setTitle:itemLabel forItemAtIndex:self.currentItemPositionInPlaylist];
+    self.playlistItems = self.playlistItems;
+}
+
+- (void)handlePlayerGetActivePlayers:(NSArray*)params {
+    //Stop heartbeat if no active players
+    if([params count] == 0) {
+        [self setPlayerHeartbeat:NO];
+        p_playerID = NONE;
+        self.isPlayerOn = NO;
+    }
+    else {
+        NSInteger oldPlayerID = p_playerID;
+        p_playerID = [[[params firstObject] valueForKey:@"playerid"] integerValue];
+        self.isPlayerOn = YES;
+        if(p_playerID != oldPlayerID) {
+            [self requestPlaylistGetItems];
+        }
+    }
+}
+
+- (void)handlePlayerOnPlay:(NSArray*)params {
+    self.isPlayerOn = YES;
+    self.isPlaying = YES;
+    self.switchingItemInPlaylist = NO;
+    
+    //Keep heartbeat on when something is playing
+    [self setPlayerHeartbeat:YES];
+    [self requestPlayerGetItem];
+}
+
+- (void)handlePlayerOnPause {
+    self.isPlaying = NO;
+}
+
+- (void)handlePlayerOnStop:(NSArray*)params {
+    self.isPlayerOn = NO;
+    self.isPlaying = NO;
+    self.currentItemPositionInPlaylist = -1;
+}
+
+- (void)handlePlaylistGetItems:(NSArray*)params {
+    NSInteger itemIndex = -1;
+    for(NSDictionary *jsonPlaylistItem in (NSArray*)[params valueForKey:@"items"]) {
+        itemIndex++;
+        NSString * itemLabel = [jsonPlaylistItem valueForKey:@"label"];
+        
+        //If the item is not already in the playlist
+        if([self.playlistItems count] > itemIndex)
+            [self setTitle:itemLabel forItemAtIndex:itemIndex];
+        else
+            [self addItemWithTitle:itemLabel];
+    }
+    
+    //Update object
+    self.playlistItems = self.playlistItems;
+    
+    [self requestPlayerGetPropertiesPlaylistPosition];
+}
+
+- (void)handlePlaylistOnClear {
+    NSLog(@"handlePlaylistOnClear");
+}
+
+- (void)handlePlaylistOnAdd:(NSArray*)params {
+    NSDictionary *item = [[params valueForKey:@"data"] valueForKey:@"item"];
+    NSString *itemTitle = [item valueForKey:@"title"];
+    [self addItemWithTitle:itemTitle];
+    
+    //Update object
+    self.playlistItems = self.playlistItems;
+}
+
+
+/***** Getters and Setters *****/
+
+- (BOOL)isConnected {
+    return (p_socket.readyState == 1);
+}
+
+- (void)setIsConnected:(BOOL)connected {
+    _isConected = connected;
+}
+
+- (void)updatePlaylistStatus {
+    self.isPlaylistOn = (self.playlistItemsJson && [self.playlistItemsJson count] > 1);
+}
+
+- (BOOL)hasReachedEndOfVideo:(NSInteger)marginInSeconds {
+    NSInteger secondsRemaining = 0;
+    secondsRemaining  = 3600*(self.playerItemTotalTime.hours - self.playerItemCurrentTime.hours);
+    secondsRemaining += 60*(self.playerItemTotalTime.minutes - self.playerItemCurrentTime.minutes);
+    secondsRemaining += (self.playerItemTotalTime.seconds - self.playerItemCurrentTime.seconds);
+    return (marginInSeconds >= secondsRemaining);
+}
+
+- (void)setTitle:(NSString*)title forItemAtIndex:(NSInteger)itemIndex {
+    if(!title || !self.playlistItems || itemIndex < 0 || itemIndex >= [self.playlistItems count])
+        return;
+    KRPlaylistItem * playlistItem = [self.playlistItems objectAtIndex:itemIndex];
+    [playlistItem setTitle:title];
+}
+
+- (void)addItemWithTitle:(NSString*)title {
+    [self.playlistItems addObject:[[KRPlaylistItem alloc] initWithTitle:title]];
+}
+
+
+//    ***     ***   *******    //
+//    ***     ***     ***      //
+//    ***     ***     ***      //
+//    ***     ***     ***      //
+//    ***     ***     ***      //
+//    ***********     ***      //
+//       *****      *******    //
 
 /***** View helpers *****/
 
-- (void)setEnabledInterface:(BOOL) enabled {
+- (void)ui_init {
+    self.preferredContentSize = CGSizeMake(0, 93);
+    p_keyboardBehaviour = COMMAND;
+    self.widgetAllowsEditing = YES;
+    [self.xib_inputTextToKodiTextField setDelegate:self];
+    [self.xib_hostAddressTextField setDelegate:self];
+    [self.xib_portTextField setDelegate:self];
+    [self.xib_userTextField setDelegate:self];
+    [self.xib_passwordTextField setDelegate:self];
+    [self.view.window makeFirstResponder:self.view];
+}
+
+- (void)ui_enableInterface:(BOOL) enabled {
+    //elements to be enabled only when playing a video
     if(!enabled) {
-        [self.playerProgressBar setEnabled:NO];
-        [self.playerProgressBar setDoubleValue:0.0];
-        [self.speedLevel setEnabled:NO];
-        [self.playButton setEnabled:NO];
-        [self.stopButton setEnabled:NO];
-        [self.forwardButton setEnabled:NO];
+        [self.xib_playerProgressBarSlider setEnabled:NO];
+        [self.xib_playerProgressBarSlider setDoubleValue:0.0];
+        [self.xib_speedLevelSlider setEnabled:NO];
+        [self.xib_playButton setEnabled:NO];
+        [self.xib_stopButton setEnabled:NO];
+        [self.xib_forwardButton setEnabled:NO];
     }
-    [self.godownButton setEnabled:enabled];
-    [self.goleftButton setEnabled:enabled];
-    [self.gorightButton setEnabled:enabled];
-    [self.goupButton setEnabled:enabled];
-    [self.selectButton setEnabled:enabled];
-    [self.menuButton setEnabled:enabled];
-    [self.infoButton setEnabled:enabled];
-    [self.backButton setEnabled:enabled];
-    [self.homeButton setEnabled:enabled];
-    [self.volumeLevel setEnabled:enabled];
+    [self.xib_goDownButton setEnabled:enabled];
+    [self.xib_goLeftButton setEnabled:enabled];
+    [self.xib_goRightButton setEnabled:enabled];
+    [self.xib_goUpButton setEnabled:enabled];
+    [self.xib_okButton setEnabled:enabled];
+    [self.xib_menuButton setEnabled:enabled];
+    [self.xib_infoButton setEnabled:enabled];
+    [self.xib_backButton setEnabled:enabled];
+    [self.xib_homeButton setEnabled:enabled];
+    [self.xib_volumeLevelSlider setEnabled:enabled];
 }
 
-- (void)setEnabledNavigationArrows:(BOOL) enabled {
-    [self.godownButton setEnabled:enabled];
-    [self.goleftButton setEnabled:enabled];
-    [self.gorightButton setEnabled:enabled];
-    [self.goupButton setEnabled:enabled];
+- (void)ui_enableNavigationControls:(BOOL) enabled {
+    [self.xib_goDownButton setEnabled:enabled];
+    [self.xib_goLeftButton setEnabled:enabled];
+    [self.xib_goRightButton setEnabled:enabled];
+    [self.xib_goUpButton setEnabled:enabled];
 }
 
-- (void)setEnabledPlayerControls:(BOOL) enabled {
-    [self.playerProgressBar setEnabled:enabled];
-    if(!enabled) [self.playerProgressBar setDoubleValue:0.0];
-    [self.speedLevel setEnabled:enabled];
-    [self.playButton setEnabled:enabled];
-    [self.stopButton setEnabled:enabled];
-    [self.forwardButton setEnabled:enabled];
+- (void)ui_enablePlayerControls:(BOOL) enabled {
+    [self.xib_playerProgressBarSlider setEnabled:enabled];
+    if(!enabled) [self.xib_playerProgressBarSlider setDoubleValue:0.0];
+    [self.xib_speedLevelSlider setEnabled:enabled];
+    [self.xib_playButton setEnabled:enabled];
+    [self.xib_stopButton setEnabled:enabled];
+    [self.xib_forwardButton setEnabled:enabled];
     if(enabled)
-        [self.playerProgressTime setTextColor:[NSColor controlLightHighlightColor]];
+        [self.xib_playerProgressTimeTitle setTextColor:[NSColor controlLightHighlightColor]];
     else {
-        [self.playerProgressTime setTextColor:[NSColor quaternaryLabelColor]];
-        [self.playerProgressTime setStringValue:@"0:00:00/0:00:00"];
+        [self.xib_playerProgressTimeTitle setTextColor:[NSColor quaternaryLabelColor]];
+        [self.xib_playerProgressTimeTitle setStringValue:@"0:00:00/0:00:00"];
     }
 }
 
-- (void)setEnabledPlaylistControls:(BOOL) enabled {
-    [self.nextPlaylistItemButton setEnabled:enabled];
-    [self.playlistCombo setEnabled:enabled];
+- (void)ui_flash {
+    [self.xib_goUpButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.05
+                                     target:self.xib_goUpButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+    [self.xib_goDownButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.05
+                                     target:self.xib_goDownButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+    [self.xib_goLeftButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.05
+                                     target:self.xib_goLeftButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+    [self.xib_goRightButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.05
+                                     target:self.xib_goRightButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+    [self.xib_okButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.05
+                                     target:self.xib_okButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (void)ui_updatePlayerTimeTitle {
+    [self.xib_playerProgressTimeTitle setStringValue:
+     [NSString stringWithFormat:@"%ld:%02ld:%02ld/%ld:%02ld:%02ld",
+      self.playerItemCurrentTime.hours,
+      self.playerItemCurrentTime.minutes,
+      self.playerItemCurrentTime.seconds,
+      self.playerItemTotalTime.hours,
+      self.playerItemTotalTime.minutes,
+      self.playerItemTotalTime.seconds]];
+}
+
+- (void)ui_updatePLayerSlider {
+    [self.xib_playerProgressBarSlider setDoubleValue:self.playerItemCurrentTimePercentage];
+}
+
+- (void)ui_updatePlayerSpeed {
+    if(self.playerSpeed == 0)
+        [self.xib_playButton setImage:[NSImage imageNamed:@"play"]];
+    else
+        [self.xib_playButton setImage:[NSImage imageNamed:@"pause"]];
+}
+
+- (void)ui_updatePlayerPlayPauseButton:(BOOL) playing {
+    if(playing)
+        [self.xib_playButton setImage:[NSImage imageNamed:@"play"]];
+    else
+        [self.xib_playButton setImage:[NSImage imageNamed:@"pause"]];
+}
+
+- (void)ui_updateVolume {
+    [self.xib_volumeLevelSlider setDoubleValue:self.applicationVolume];
+}
+
+- (void)ui_addItemToPlaylistView:(NSString*) itemLabel withPosition:(NSInteger) itemPosition {
+    
+    if(!itemLabel || [itemLabel isEqualToString:@""]) {
+        [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. missing item label", itemPosition]];
+    } else {
+        [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
+//        NSRange range = [itemLabel rangeOfString:@"[0-9]+. .*" options:NSRegularExpressionSearch];
+//        if(range.location != NSNotFound)
+//            [self.xib_playlistComboBox addItemWithTitle:itemLabel];
+//        else
+//            [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
+    }
+}
+
+- (void)ui_updatePlaylistItems {
+    //if playlist is in use
+    if(self.playlistItems && [self.playlistItems count] > 1) {
+        
+        [self.xib_playlistComboBox removeAllItems];
+        
+        //populating playlist's interface nspopupbutton
+        NSInteger itemIndex = 0;
+        for(KRPlaylistItem *playListItem in self.playlistItems) {
+            itemIndex++;
+            [self ui_addItemToPlaylistView:playListItem.title withPosition:itemIndex];
+        }
+        [self ui_updatePlaylistComboSelect];
+        [self ui_showPlaylistControls:YES];
+    }
+    else {
+        [self ui_showPlaylistControls:NO];
+    }
+}
+
+- (void)ui_updatePlaylistComboSelect {
+    [self.xib_playlistComboBox selectItemAtIndex:self.currentItemPositionInPlaylist];
+}
+
+- (void)ui_showPlaylistControls:(BOOL) enabled {
     if(enabled)
         self.preferredContentSize = CGSizeMake(0, 120);
     else
         self.preferredContentSize = CGSizeMake(0, 93);
 }
 
-- (void)addItemToPlaylistView:(NSString*) itemLabel withPosition:(NSInteger) itemPosition {
+- (void)ui_enablePlaylistControls:(BOOL) enabled {
+    [self.xib_nextPlaylistItemButton setEnabled:enabled];
+    [self.xib_playlistComboBox setEnabled:enabled];
+}
+
+
+/***** View inputs *****/
+
+- (IBAction)onUpButtonPressed:(id)sender {
+    [self sendInputUp];
     
-    if(!itemLabel || [itemLabel isEqualToString:@""]) {
-        [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"%02ld. missing item label", itemPosition]];
-    } else {
-        NSRange range = [itemLabel rangeOfString:@"[0-9]+\. .*" options:NSRegularExpressionSearch];
-        if(range.location != NSNotFound)
-            [self.playlistCombo addItemWithTitle:itemLabel];
-        else
-            [self.playlistCombo addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
+    [self.xib_goUpButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_goUpButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onDownButtonPressed:(id)sender {
+    [self sendInputDown];
+    
+    [self.xib_goDownButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_goDownButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onLeftButtonPressed:(id)sender {
+    [self sendInputLeft];
+
+    [self.xib_goLeftButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_goLeftButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onRightButtonPressed:(id)sender {
+    [self sendInputRight];
+    
+    [self.xib_goRightButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_goRightButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onOkButtonPressed:(id)sender {
+    [self sendInputSelect];
+    
+    [self.xib_okButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_okButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onBackButtonPressed:(id)sender {
+    [self sendInputExecuteActionBack];
+    
+    [self.xib_backButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_backButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onHomeButtonPressed:(id)sender {
+    [self sendInputHome];
+    
+    [self.xib_homeButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_homeButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onInfoButtonPressed:(id)sender {
+    [self sendInputInfo];
+    
+    [self.xib_infoButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_infoButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onMenuButtonPressed:(id)sender {
+    [self sendInputExecuteActionContextMenu];
+    
+    [self.xib_menuButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_menuButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onStopButtonPressed:(id)sender {
+    [self sendInputExecuteActionStop];
+    [self ui_showPlaylistControls:NO];
+    
+    [self.xib_stopButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_stopButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onPlayPauseButtonPressed:(id)sender {
+    [self sendInputExecuteActionPause];
+    
+    [self.xib_playButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_playButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onForwardButtonPressed:(id)sender {
+    [self sendPlayerSeekForward];
+    
+    [self.xib_forwardButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_forwardButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onVolumeSliderChanged:(id)sender {
+    int lc_volume = self.xib_volumeLevelSlider.intValue;
+    [self sendApplicationSetVolume:lc_volume];
+}
+
+- (IBAction)onSpeedSliderChange:(id)sender {
+    NSEvent *event = [[NSApplication sharedApplication] currentEvent];
+    BOOL endingDrag = event.type == NSLeftMouseUp;
+    int lc_speed = self.xib_speedLevelSlider.intValue;
+    if( lc_speed != 0 && !endingDrag)
+        [self sendPlayerSetSpeed:lc_speed];
+    else if (endingDrag) {
+        [self sendPlayerSetSpeed:0];
+        [self.xib_speedLevelSlider setIntegerValue:0];
     }
+}
+
+- (IBAction)onProgressSliderChange:(id)sender {
+    NSEvent *event = [[NSApplication sharedApplication] currentEvent];
+    if(event.type == NSLeftMouseDragged) {
+        long lc_itemDurationH = self.playerItemTotalTime.hours;
+        long lc_itemDurationM = self.playerItemTotalTime.minutes;
+        long lc_itemDurationS = self.playerItemTotalTime.seconds;
+        
+        long lc_totalSeconds = lc_itemDurationH*3600 + lc_itemDurationM*60 + lc_itemDurationS;
+        NSTimeInterval lc_itemSeek = lc_totalSeconds * ((double)self.xib_playerProgressBarSlider.intValue/100);
+        long lc_itemSeekH = lc_itemSeek/3600;
+        long lc_itemSeekM = fmod(lc_itemSeek, 3600)/60;
+        long lc_itemSeekS = fmod(lc_itemSeek, 60) ;
+        
+        [self.xib_playerProgressTimeTitle setStringValue:[NSString stringWithFormat:@"%ld:%02ld:%02ld/%ld:%02ld:%02ld",
+                                                          lc_itemSeekH,
+                                                          lc_itemSeekM,
+                                                          lc_itemSeekS,
+                                                          lc_itemDurationH,
+                                                          lc_itemDurationM,
+                                                          lc_itemDurationS]];
+    }
+    
+    if(event.type == NSLeftMouseUp)
+        [self sendPlayerSeek:self.xib_playerProgressBarSlider.intValue];
+}
+
+- (IBAction)onNextPlaylistItemButtonPressed:(id)sender {
+    [self sendPlayerGoToNext];
+    
+    //UI updates
+    [self.xib_nextPlaylistItemButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_nextPlaylistItemButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (IBAction)onPlaylistComboboxChanged:(id)sender {
+    [self sendPlayerGoTo:(int)[sender indexOfSelectedItem]];
+    
+    //UI updates
+    [self.xib_nextPlaylistItemButton highlight:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.1
+                                     target:self.xib_nextPlaylistItemButton
+                                   selector:@selector(highlight:)
+                                   userInfo:nil
+                                    repeats:NO];
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary *)change
+                       context:(void *)context
+{
+    if([self.view isHidden])
+        return;
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(isInitiated)) ] &&
+       ((TodayViewController*)object).isInitiated )
+        [self ui_init];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(isConnected)) ])
+        [self ui_enableInterface:((TodayViewController*)object).isConnected];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(playerItemCurrentTime))])
+        [self ui_updatePlayerTimeTitle];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(playerItemTotalTime))])
+        [self ui_updatePlayerTimeTitle];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(playerItemCurrentTimePercentage))])
+        [self ui_updatePLayerSlider];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(playerSpeed))])
+        [self ui_updatePlayerSpeed];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(applicationVolume))])
+        [self ui_updateVolume];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(playlistItems))])
+        [self ui_updatePlaylistItems];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(currentItemPositionInPlaylist))])
+        [self ui_updatePlaylistComboSelect];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(switchingItemInPlaylist))])
+        [self ui_enablePlaylistControls:!self.switchingItemInPlaylist];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(isPlayerOn))])
+        [self ui_enablePlayerControls:self.isPlayerOn];
+//    else
+//    if([keyPath isEqualToString: NSStringFromSelector(@selector(isPlaylistOn))])
+//        [self ui_enablePlaylistControls:self.isPlaylistOn];
+    else
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(isPlaying))])
+        [self ui_updatePlayerPlayPauseButton:self.isPlaying];
 }
 
 
@@ -989,12 +1496,12 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 //    NSLog(@"Key pressed : %u", event.keyCode);
     switch (p_keyboardBehaviour)
     {
-        case textInput:
+        case TEXT_INPUT:
             break;
-        case command:
+        case COMMAND:
             [self keyboardCommandsMapping:event];
             break;
-        case settings:
+        case SETTINGS:
             break;
     }
 }
@@ -1005,84 +1512,91 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
     {
         case 1: // s key
             if(event.modifierFlags & NSShiftKeyMask)
-                [self sendPlayerSeekForward:self];
+                [self onForwardButtonPressed:self];
             else
-                [self sendInputExecuteActionStop:self];
+                [self onStopButtonPressed:self];
             break;
         case 3: // f key
-            [self sendPlayerSeekForward:self];
+            [self onForwardButtonPressed:self];
             break;
         case 7: // x key
-            [self sendInputExecuteActionStop:self];
+            [self onStopButtonPressed:self];
             break;
         case 8: // c key
-            [self sendInputExecuteActionContextMenu:self];
+            [self onMenuButtonPressed:self];
             break;
         case 11: // b key
-            [self sendPlayerSeekBackward:self];
+            [self sendPlayerSeekBackward];
             break;
         case 13: // w key
-            [self sendPlayerMarkAsWatched:self];
+            [self sendPlayerMarkAsWatched];
             break;
         case 4:  // h key
-            [self sendInputHome:self];
+            [self onHomeButtonPressed:self];
             break;
         case 32:  // u key
-            [self sendVideoLibraryScan:self];
+            [self sendVideoLibraryScan];
             break;
         case 34:  // i key
-           [self sendInputInfo:self];
+           [self onInfoButtonPressed:self];
             break;
         case 35:  // p key
-            [self sendPlayerGoToPrevious:self];
+            [self sendPlayerGoToPrevious];
             break;
         case 36:  // return key
-            [self sendInputSelect:self];
+            [self onOkButtonPressed:self];
             break;
-        case 43:
+        case 43:  // semicolon key
             if(event.modifierFlags & NSCommandKeyMask)
                 [self widgetDidBeginEditing];
             break;
         case 45:  // n key
-            [self sendPlayerGoToNext:self];
+            [self onNextPlaylistItemButtonPressed:self];
             break;
         case 46:  // m key
-            [self sendInputExecuteActionContextMenu:self];
+            [self onMenuButtonPressed:self];
             break;
         case 15:  // r key
             if(event.modifierFlags & NSShiftKeyMask)
-                [self sendSystemReboot:self];
+                [self sendSystemReboot];
+            else
+            if(event.modifierFlags & NSCommandKeyMask)
+                [self reset];
             break;
         case 49:  // space key
-            [self sendInputExecuteActionPause:self];
+            [self onPlayPauseButtonPressed:self];
             break;
         case 51:  // back key
-            [self sendInputExecuteActionBack:self];
+            [self onBackButtonPressed:self];
             break;
         case 123: // left key
             if(event.modifierFlags & NSShiftKeyMask)
-                [self sendPlayerSeekBackward:self];
+                [self sendPlayerSeekBackward];
             else
-                [self sendInputLeft:self];
+                [self onLeftButtonPressed:self];
             break;
         case 124: // right key
             if(event.modifierFlags & NSShiftKeyMask)
-                [self sendPlayerSeekForward:self];
+                [self sendPlayerSeekForward];
             else
-                [self sendInputRight:self];
+                [self onRightButtonPressed:self];
             break;
         case 125: // down key
             if(event.modifierFlags & NSShiftKeyMask)
-                [self sendApplicationSetVolumeDecrement:self];
+                [self sendApplicationSetVolumeDecrement];
             else
-                [self sendInputDown:self];
+                [self onDownButtonPressed:self];
             break;
         case 126: // up key
             if(event.modifierFlags & NSShiftKeyMask)
-                [self sendApplicationSetVolumeIncrement:self];
+                [self sendApplicationSetVolumeIncrement];
             else
-                [self sendInputUp:self];
+                [self onUpButtonPressed:self];
             break;
+        case 48:  // tab key
+            [self ui_flash];
+            break;
+            
         case 9:   // v key
             if(event.modifierFlags & NSCommandKeyMask) {
                 NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
@@ -1097,34 +1611,34 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 
 - (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector {
 
-    if([control isEqual:self.inputTextTextField]) {
+    if([control isEqual:self.xib_inputTextToKodiTextField]) {
         if (commandSelector == @selector(deleteBackward:)) {
-            if(self.inputTextTextField.stringValue.length == 0) {
-                [self sendInputExecuteActionBack:self];
+            if(self.xib_inputTextToKodiTextField.stringValue.length == 0) {
+                [self sendInputExecuteActionBack];
                 return YES;
             }
         }
         else if (commandSelector == @selector(insertNewline:)) {
-            [self sendInputSendText:self.inputTextTextField.stringValue andSubmit:YES];
-            [self.inputTextTextField setStringValue:@""];
+            [self sendInputSendText:self.xib_inputTextToKodiTextField.stringValue andSubmit:YES];
+            [self.xib_inputTextToKodiTextField setStringValue:@""];
             return YES;
         }
     }
     else if(commandSelector == @selector(insertNewline:)) {
-        if([control isEqual:self.hostAddress]) {
-            [self.view.window makeFirstResponder:self.port];
+        if([control isEqual:self.xib_hostAddressTextField]) {
+            [self.view.window makeFirstResponder:self.xib_portTextField];
         }
-        else if([control isEqual:self.port]) {
-            [self.view.window makeFirstResponder:self.userTextField];
+        else if([control isEqual:self.xib_portTextField]) {
+            [self.view.window makeFirstResponder:self.xib_userTextField];
         }
-        else if([control isEqual:self.userTextField]) {
-            if([self.userTextField.stringValue rangeOfString:@" " options:NSRegularExpressionSearch].location != NSNotFound)
-                self.userTextField.stringValue = @"";
-            [self.view.window makeFirstResponder:self.passwordTextField];
+        else if([control isEqual:self.xib_userTextField]) {
+            if([self.xib_userTextField.stringValue rangeOfString:@" " options:NSRegularExpressionSearch].location != NSNotFound)
+                self.xib_userTextField.stringValue = @"";
+            [self.view.window makeFirstResponder:self.xib_passwordTextField];
         }
-        else if([control isEqual:self.passwordTextField]) {
-            if([self.userTextField.stringValue rangeOfString:@" " options:NSRegularExpressionSearch].location != NSNotFound)
-                self.passwordTextField.stringValue = @"";
+        else if([control isEqual:self.xib_passwordTextField]) {
+            if([self.xib_userTextField.stringValue rangeOfString:@" " options:NSRegularExpressionSearch].location != NSNotFound)
+                self.xib_passwordTextField.stringValue = @"";
             [self widgetDidEndEditing];
         }
     }
@@ -1132,8 +1646,8 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 }
 
 - (void)controlTextDidChange:(NSNotification *)obj {
-    if([obj.object isEqual:self.inputTextTextField])
-        [self sendInputSendText:self.inputTextTextField.stringValue andSubmit:NO];
+    if([obj.object isEqual:self.xib_inputTextToKodiTextField])
+        [self sendInputSendText:self.xib_inputTextToKodiTextField.stringValue andSubmit:NO];
 }
 
 - (void)handleStreamLink:(NSString *)link {
@@ -1179,15 +1693,14 @@ typedef NS_ENUM(NSInteger, KeyboardBehaviour) {
 //    }
     
     if(plugginSpecificCommand != nil) {
-        if(p_playerid != 1) {
-            [self sendPlaylistClearVideo:self];
-            [self sendPlaylistAddVideo:self streamLink:plugginSpecificCommand];
-            [self sendPlayerOpenVideo:self];
+        if(p_playerID != 1) { //if Kodi is not playing a video
+            [self sendPlaylistClearVideo];
+            [self sendPlaylistAddVideoStreamLink:plugginSpecificCommand];
+            [self sendPlayerOpenVideo];
         }
         else
-            [self sendPlaylistAddVideo:self streamLink:plugginSpecificCommand];
+            [self sendPlaylistAddVideoStreamLink:plugginSpecificCommand];
     }
 }
 
 @end
-

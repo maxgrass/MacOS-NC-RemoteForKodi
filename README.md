@@ -1,21 +1,28 @@
-# OS-X-Remote-For-Kodi V 1.1
+# OS-X-Remote-For-Kodi V 2.0
 
 <p>
-  A simple OS X Notification Center Widget remote to navigate on Kodi's interface through a private network. 
+  OSX Remote For Kodi is a simple OS X Notification Center Widget to navigate on Kodi's interface through a friendly private network. 
 </p>
 
+##Downloads
 <p>
-  <a href="http://bit.ly/1M5Iv5B">Download the dmg containing the app</a><br/>
-  <a href="http://bit.ly/1TDEhrs">Get the code</a><br/>
+  <a href="http://bit.ly/1M5Iv5B">OSX Remote For Kodi v2.0 - OSX 10.12 and over - latest version</a><br/>
+  <a href="http://bit.ly/2e8Bj2T">OSX Remote For Kodi v1.1 - OSX 10.10 and over</a><br/>
 </p>
+##Screenshots
 <p>
-  Screenshots :<br/>
-  <a>https://i.imgur.com/z0FGLQA.png</a><br/>
-  <a>https://i.imgur.com/FBv9s7r.png</a><br/>
-  <a>https://i.imgur.com/K8BoTdT.png</a><br/> 
+  v2 :<br/>
+  <a href="http://i.imgur.com/9MK2v3Y.png">Main view - when something is playing and more items are queued in the playlist</a><br/>
+  <a href="http://i.imgur.com/vwjCxkn.png">Main view - when nothing is playing</a><br/>
+  <a href="http://i.imgur.com/kgys8or.png">Settings view</a><br/> 
+  <br/>
+  v1 :<br/>
+  <a href="https://i.imgur.com/FBv9s7r.png">Main view - when something is playing and more items are queued in the playlist</a><br/>
+  <a href="https://i.imgur.com/z0FGLQA.png">Main view - when nothing is playing</a><br/>
+  <a href="https://i.imgur.com/K8BoTdT.png">Settings view</a><br/> 
 </p>
 
-List of keyboard commands :
+##List of keyboard commands
 <table>
   <tr><td>cmd + ,</td><td>display remote's settings</td></tr>
   <tr><td>left</td><td>left</td></tr>
@@ -35,6 +42,11 @@ List of keyboard commands :
   <tr><td>shift+up</td><td>volume up</td></tr>
   <tr><td>p</td><td>play previous item in playlist</td></tr>
   <tr><td>n</td><td>play next item in playlist</td></tr>
-  <tr><td>shift + r</td><td>restart</td></tr>
+  <tr><td>shift + r</td><td>restart kodi</td></tr>
+  <tr><td>cmd + r</td><td>reset the remote</td></tr>
   <tr><td>cmd + v</td><td>add youtube or vimeo video to the playlist from a link in the clipboard</td></tr>
 </table>
+
+<p>
+<a href="http://bit.ly/1TDEhrs">Get the code</a><br/>
+</p>

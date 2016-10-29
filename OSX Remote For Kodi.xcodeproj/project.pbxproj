@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BC00DE391D2841960081510A /* CHANGELOG.md in Sources */ = {isa = PBXBuildFile; fileRef = BC00DE381D2841960081510A /* CHANGELOG.md */; };
+		BC6F591F1DBBFC870029A6C7 /* KodiRPC.m in Sources */ = {isa = PBXBuildFile; fileRef = BC6F591E1DBBFC870029A6C7 /* KodiRPC.m */; };
 		BCA0C4FA1B77B437003D6F45 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = BCA0C4F91B77B437003D6F45 /* AppDelegate.m */; };
 		BCA0C4FC1B77B437003D6F45 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = BCA0C4FB1B77B437003D6F45 /* main.m */; };
 		BCA0C4FF1B77B437003D6F45 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = BCA0C4FE1B77B437003D6F45 /* ViewController.m */; };
@@ -15,7 +15,6 @@
 		BCA0C5041B77B437003D6F45 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BCA0C5021B77B437003D6F45 /* Main.storyboard */; };
 		BCA0C5101B77B437003D6F45 /* OSX_Remote_For_KodiTests.m in Sources */ = {isa = PBXBuildFile; fileRef = BCA0C50F1B77B437003D6F45 /* OSX_Remote_For_KodiTests.m */; };
 		BCB564541B7924360062B31D /* LICENCE in Resources */ = {isa = PBXBuildFile; fileRef = BCB564531B7924360062B31D /* LICENCE */; };
-		BCB564561B7924520062B31D /* README.md in Sources */ = {isa = PBXBuildFile; fileRef = BCB564551B7924520062B31D /* README.md */; };
 		BCD94E1E1B791D6E003C8481 /* NotificationCenter.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BCA0C51F1B77B82A003D6F45 /* NotificationCenter.framework */; };
 		BCD94E251B791D6E003C8481 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BCD94E231B791D6E003C8481 /* InfoPlist.strings */; };
 		BCD94E281B791D6E003C8481 /* TodayViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = BCD94E271B791D6E003C8481 /* TodayViewController.m */; };
@@ -73,6 +72,8 @@
 		BC0819DC1C51775A00884B3E /* OSX Remote For Kodi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "OSX Remote For Kodi.entitlements"; sourceTree = "<group>"; };
 		BC2B1F2A1B78E63900F15764 /* libSocketRocket.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSocketRocket.a; path = "../../../Library/Developer/Xcode/DerivedData/OSX_Remote_For_Kodi-btjfqerzbehbzacoxqjzhbzhbjdf/Build/Products/Debug/libSocketRocket.a"; sourceTree = "<group>"; };
 		BC2B1F2B1B78E63900F15764 /* SocketRocket.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SocketRocket.framework; path = "../../../Library/Developer/Xcode/DerivedData/OSX_Remote_For_Kodi-btjfqerzbehbzacoxqjzhbzhbjdf/Build/Products/Debug/SocketRocket.framework"; sourceTree = "<group>"; };
+		BC6F591D1DBBFC870029A6C7 /* KodiRPC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KodiRPC.h; sourceTree = "<group>"; };
+		BC6F591E1DBBFC870029A6C7 /* KodiRPC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KodiRPC.m; sourceTree = "<group>"; };
 		BCA0C4F31B77B437003D6F45 /* OSX Remote For Kodi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "OSX Remote For Kodi.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BCA0C4F71B77B437003D6F45 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BCA0C4F81B77B437003D6F45 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -210,6 +211,8 @@
 				BCD94E261B791D6E003C8481 /* TodayViewController.h */,
 				BCD94E271B791D6E003C8481 /* TodayViewController.m */,
 				BCD94E291B791D6E003C8481 /* TodayViewController.xib */,
+				BC6F591D1DBBFC870029A6C7 /* KodiRPC.h */,
+				BC6F591E1DBBFC870029A6C7 /* KodiRPC.m */,
 				BCD94E201B791D6E003C8481 /* Supporting Files */,
 			);
 			path = "Remote For Kodi";
@@ -289,7 +292,7 @@
 		BCA0C4EB1B77B437003D6F45 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0730;
+				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = SylvainRoux;
 				TargetAttributes = {
 					BCA0C4F21B77B437003D6F45 = {
@@ -370,9 +373,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BCA0C4FF1B77B437003D6F45 /* ViewController.m in Sources */,
-				BC00DE391D2841960081510A /* CHANGELOG.md in Sources */,
 				BCA0C4FC1B77B437003D6F45 /* main.m in Sources */,
-				BCB564561B7924520062B31D /* README.md in Sources */,
 				BCA0C4FA1B77B437003D6F45 /* AppDelegate.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -389,6 +390,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BC6F591F1DBBFC870029A6C7 /* KodiRPC.m in Sources */,
 				BCD94E281B791D6E003C8481 /* TodayViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -465,7 +467,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
@@ -502,7 +504,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
@@ -512,6 +514,7 @@
 		BCA0C5141B77B437003D6F45 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "OSX Remote For Kodi/OSX Remote For Kodi.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
@@ -525,6 +528,7 @@
 		BCA0C5151B77B437003D6F45 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "OSX Remote For Kodi/OSX Remote For Kodi.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;

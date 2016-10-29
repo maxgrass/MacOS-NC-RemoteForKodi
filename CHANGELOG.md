@@ -1,5 +1,15 @@
 #Change log
 
+##Version 2.0 :
+- UI adapted to OSX 10.12 Sierra
+- Refactoring of the code
+
+##Version 1.1.1 :
+- UI flashes when tab is pressed so it shows it has the focus
+- Fixed a few bugs and design flaws
+- switched to a pre-compilation log enabling system
+- refactoring ...
+
 ##Version 1.1 :
 - Added a username and password field to connect to kodi. Although those informations are not encrypted when they are sent over the network.
 

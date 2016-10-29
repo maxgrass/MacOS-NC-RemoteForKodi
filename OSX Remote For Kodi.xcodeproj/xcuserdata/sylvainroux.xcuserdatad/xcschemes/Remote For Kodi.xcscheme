@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0730"
+   LastUpgradeVersion = "0800"
    wasCreatedForAppExtension = "YES"
    version = "2.0">
    <BuildAction
@@ -67,8 +67,12 @@
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES"
       launchAutomaticallySubstyle = "2">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
+      <RemoteRunnable
+         runnableDebuggingMode = "0"
+         BundleIdentifier = "com.apple.notificationcenter.widgetsimulator"
+         RemotePath = "/System/Library/Frameworks/NotificationCenter.framework/Versions/A/Resources/Widget Simulator.app">
+      </RemoteRunnable>
+      <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "BCA0C4F21B77B437003D6F45"
@@ -76,7 +80,7 @@
             BlueprintName = "OSX Remote For Kodi"
             ReferencedContainer = "container:OSX Remote For Kodi.xcodeproj">
          </BuildableReference>
-      </BuildableProductRunnable>
+      </MacroExpansion>
       <AdditionalOptions>
       </AdditionalOptions>
    </LaunchAction>
