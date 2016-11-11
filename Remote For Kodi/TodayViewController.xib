@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="11201" systemVersion="16B2555" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="11542" systemVersion="16B2555" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="11201"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="11542"/>
         <capability name="Alignment constraints to the first baseline" minToolsVersion="6.0"/>
         <capability name="Alignment constraints with different attributes" minToolsVersion="5.1"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="TodayViewController">
@@ -82,7 +83,7 @@
                                     <constraints>
                                         <constraint firstAttribute="width" constant="28" id="Wqc-IH-dUZ"/>
                                     </constraints>
-                                    <buttonCell key="cell" type="bevel" bezelStyle="rounded" image="stopkey" imagePosition="overlaps" alignment="center" focusRingType="none" imageScaling="proportionallyDown" inset="2" id="HOG-6g-3b5">
+                                    <buttonCell key="cell" type="bevel" bezelStyle="rounded" image="stopkey" imagePosition="overlaps" alignment="center" state="on" focusRingType="none" imageScaling="proportionallyDown" inset="2" id="HOG-6g-3b5">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -97,36 +98,36 @@
                                     </constraints>
                                     <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Volume :" id="fdf-cj-XyD">
                                         <font key="font" metaFont="miniSystem"/>
-                                        <color key="textColor" name="tertiaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="textColor" white="0.0" alpha="0.75060466609589038" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="d6l-Nd-CFi">
-                                    <rect key="frame" x="37" y="7" width="182" height="13"/>
+                                    <rect key="frame" x="37" y="4" width="182" height="13"/>
                                     <sliderCell key="cell" controlSize="mini" continuous="YES" enabled="NO" state="on" alignment="left" maxValue="100" tickMarkPosition="above" sliderType="linear" id="eY1-kG-twJ"/>
                                     <connections>
                                         <action selector="onProgressSliderChange:" target="-2" id="N3H-O0-yHW"/>
                                     </connections>
                                 </slider>
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="8gj-d4-dLc">
-                                    <rect key="frame" x="35" y="18" width="53" height="11"/>
+                                    <rect key="frame" x="35" y="17" width="53" height="11"/>
                                     <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Progress :" id="3DP-mw-Nko">
                                         <font key="font" metaFont="miniSystem"/>
-                                        <color key="textColor" name="tertiaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="textColor" white="0.0" alpha="0.75060466609589038" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="WDb-JD-lYc">
-                                    <rect key="frame" x="131" y="17" width="90" height="13"/>
+                                    <rect key="frame" x="131" y="16" width="90" height="13"/>
                                     <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="0:00:00/0:00:00" id="TSt-rs-5Wd">
                                         <font key="font" size="9" name="Menlo-Regular"/>
-                                        <color key="textColor" name="quaternaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="textColor" white="0.0" alpha="0.75060466609589038" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <button focusRingType="none" translatesAutoresizingMaskIntoConstraints="NO" id="bcW-Ar-Rfg">
                                     <rect key="frame" x="0.0" y="28" width="28" height="32"/>
-                                    <buttonCell key="cell" type="bevel" bezelStyle="rounded" image="pause" imagePosition="overlaps" alignment="center" focusRingType="none" imageScaling="proportionallyDown" inset="2" id="jQu-uE-jb4">
+                                    <buttonCell key="cell" type="bevel" bezelStyle="rounded" image="play" imagePosition="overlaps" alignment="center" state="on" focusRingType="none" imageScaling="proportionallyDown" inset="2" id="jQu-uE-jb4">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -135,7 +136,7 @@
                                     </connections>
                                 </button>
                                 <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="7PP-80-KIl">
-                                    <rect key="frame" x="37" y="34" width="182" height="15"/>
+                                    <rect key="frame" x="37" y="33" width="182" height="15"/>
                                     <sliderCell key="cell" controlSize="mini" continuous="YES" enabled="NO" state="on" alignment="left" minValue="-5" maxValue="5" tickMarkPosition="above" numberOfTickMarks="11" allowsTickMarkValuesOnly="YES" sliderType="linear" id="ruc-Mb-zDB"/>
                                     <connections>
                                         <action selector="onSpeedSliderChange:" target="-2" id="6Uf-bN-v1U"/>
@@ -148,13 +149,13 @@
                                     </constraints>
                                     <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Speed :" id="9Qu-Hn-kkc">
                                         <font key="font" metaFont="miniSystem"/>
-                                        <color key="textColor" name="tertiaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                        <color key="textColor" white="0.0" alpha="0.75060466609589038" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <button focusRingType="none" translatesAutoresizingMaskIntoConstraints="NO" id="NWK-Ix-Xpb">
                                     <rect key="frame" x="0.0" y="0.0" width="29" height="32"/>
-                                    <buttonCell key="cell" type="bevel" bezelStyle="rounded" image="forward" imagePosition="overlaps" alignment="center" focusRingType="none" imageScaling="proportionallyDown" inset="2" id="m7P-b5-aHb">
+                                    <buttonCell key="cell" type="bevel" bezelStyle="rounded" image="forward" imagePosition="overlaps" alignment="center" state="on" focusRingType="none" imageScaling="proportionallyDown" inset="2" id="m7P-b5-aHb">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -166,10 +167,10 @@
                             <constraints>
                                 <constraint firstItem="hc4-VU-q0T" firstAttribute="top" secondItem="HE7-J7-YKp" secondAttribute="top" id="2Uz-gz-S4X"/>
                                 <constraint firstItem="hc4-VU-q0T" firstAttribute="leading" secondItem="bcW-Ar-Rfg" secondAttribute="leading" id="2hq-S1-JsO"/>
-                                <constraint firstItem="d6l-Nd-CFi" firstAttribute="top" secondItem="7PP-80-KIl" secondAttribute="bottom" constant="14" id="61b-gE-CDf"/>
+                                <constraint firstItem="d6l-Nd-CFi" firstAttribute="top" secondItem="7PP-80-KIl" secondAttribute="bottom" constant="16" id="61b-gE-CDf"/>
                                 <constraint firstItem="d6l-Nd-CFi" firstAttribute="trailing" secondItem="7PP-80-KIl" secondAttribute="trailing" id="8xh-0n-N7a"/>
                                 <constraint firstItem="bcW-Ar-Rfg" firstAttribute="leading" secondItem="NWK-Ix-Xpb" secondAttribute="leading" id="DkP-2s-6D1"/>
-                                <constraint firstItem="7PP-80-KIl" firstAttribute="top" secondItem="pBb-D4-0HH" secondAttribute="bottom" constant="12" id="GIW-Fl-eeW"/>
+                                <constraint firstItem="7PP-80-KIl" firstAttribute="top" secondItem="pBb-D4-0HH" secondAttribute="bottom" constant="13" id="GIW-Fl-eeW"/>
                                 <constraint firstItem="tJb-aC-cEN" firstAttribute="leading" secondItem="bcW-Ar-Rfg" secondAttribute="trailing" constant="9" id="J1I-Di-OR5"/>
                                 <constraint firstItem="WDb-JD-lYc" firstAttribute="trailing" secondItem="d6l-Nd-CFi" secondAttribute="trailing" id="MwV-j5-Q1O"/>
                                 <constraint firstItem="tJb-aC-cEN" firstAttribute="top" secondItem="pBb-D4-0HH" secondAttribute="bottom" constant="2" id="OOI-zg-gLl"/>
@@ -350,10 +351,6 @@
                 <customView autoresizesSubviews="NO" translatesAutoresizingMaskIntoConstraints="NO" id="44b-1i-ztT" userLabel="Playlist View">
                     <rect key="frame" x="8" y="0.0" width="320" height="26"/>
                     <subviews>
-                        <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="MOQ-od-Stv">
-                            <rect key="frame" x="37" y="-7" width="267" height="42"/>
-                            <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="combobg" id="RJu-ph-xdo"/>
-                        </imageView>
                         <button focusRingType="none" translatesAutoresizingMaskIntoConstraints="NO" id="2xK-X0-WNH">
                             <rect key="frame" x="0.0" y="-3" width="28" height="32"/>
                             <constraints>
@@ -380,13 +377,10 @@
                         </popUpButton>
                     </subviews>
                     <constraints>
-                        <constraint firstItem="MOQ-od-Stv" firstAttribute="centerY" secondItem="bVS-uB-kv6" secondAttribute="centerY" constant="-0.5" id="3pe-vd-rBO"/>
                         <constraint firstItem="2xK-X0-WNH" firstAttribute="centerY" secondItem="44b-1i-ztT" secondAttribute="centerY" id="QDQ-ha-Nt3"/>
                         <constraint firstItem="bVS-uB-kv6" firstAttribute="centerY" secondItem="44b-1i-ztT" secondAttribute="centerY" id="Rlf-FE-ZKx"/>
                         <constraint firstItem="bVS-uB-kv6" firstAttribute="leading" secondItem="2xK-X0-WNH" secondAttribute="trailing" constant="9" id="b6g-gt-ZiK"/>
-                        <constraint firstItem="MOQ-od-Stv" firstAttribute="width" secondItem="bVS-uB-kv6" secondAttribute="width" id="fZ3-dp-EP9"/>
                         <constraint firstAttribute="trailing" secondItem="bVS-uB-kv6" secondAttribute="trailing" constant="16" id="heX-q5-TeV"/>
-                        <constraint firstItem="MOQ-od-Stv" firstAttribute="centerX" secondItem="bVS-uB-kv6" secondAttribute="centerX" id="rcj-Hp-hLG"/>
                         <constraint firstItem="2xK-X0-WNH" firstAttribute="leading" secondItem="44b-1i-ztT" secondAttribute="leading" id="s32-1m-NCC"/>
                     </constraints>
                 </customView>
@@ -524,28 +518,27 @@
         </customView>
     </objects>
     <resources>
-        <image name="back" width="29" height="29"/>
+        <image name="back" width="64" height="64"/>
         <image name="back_alt" width="29" height="29"/>
-        <image name="combobg" width="502" height="42"/>
         <image name="forward" width="48" height="48"/>
-        <image name="godown" width="28.5" height="16"/>
+        <image name="godown" width="64" height="36"/>
         <image name="godown_alt" width="28.5" height="16"/>
-        <image name="goleft" width="16" height="28.5"/>
+        <image name="goleft" width="36" height="64"/>
         <image name="goleft_alt" width="16" height="28.5"/>
-        <image name="goright" width="16" height="28.5"/>
+        <image name="goright" width="36" height="64"/>
         <image name="goright_alt" width="16" height="28.5"/>
-        <image name="goup" width="28.5" height="16"/>
+        <image name="goup" width="64" height="36"/>
         <image name="goup_alt" width="28.5" height="16"/>
-        <image name="home" width="29" height="29"/>
+        <image name="home" width="64" height="64"/>
         <image name="home_alt" width="29" height="29"/>
-        <image name="info" width="29" height="29"/>
+        <image name="info" width="64" height="64"/>
         <image name="info_alt" width="29" height="29"/>
-        <image name="menu" width="29" height="29"/>
+        <image name="menu" width="64" height="64"/>
         <image name="menu_alt" width="29" height="29"/>
         <image name="nextItem" width="48" height="48"/>
-        <image name="ok" width="30.5" height="30.5"/>
+        <image name="ok" width="64" height="64"/>
         <image name="ok_alt" width="30.5" height="30.5"/>
-        <image name="pause" width="48" height="48"/>
+        <image name="play" width="48" height="48"/>
         <image name="stopkey" width="48" height="48"/>
     </resources>
 </document>

@@ -1,4 +1,4 @@
-# OS-X-Remote-For-Kodi V 2.0
+# OS-X-Remote-For-Kodi V 2.1
 
 <p>
   OSX Remote For Kodi is a simple OS X Notification Center Widget to navigate on Kodi's interface through a friendly private network. 
@@ -6,7 +6,7 @@
 
 ##Downloads
 <p>
-  <a href="http://bit.ly/1M5Iv5B">OSX Remote For Kodi v2.0 - OSX 10.12 and over - latest version</a><br/>
+  <a href="http://bit.ly/1M5Iv5B">OSX Remote For Kodi v2.1 - OSX 10.12 and over - latest version</a><br/>
   <a href="http://bit.ly/2e8Bj2T">OSX Remote For Kodi v1.1 - OSX 10.10 and over</a><br/>
 </p>
 ##Screenshots

@@ -91,7 +91,6 @@
 		BCB564551B7924520062B31D /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		BCD94E1D1B791D6D003C8481 /* Remote For Kodi.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Remote For Kodi.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BCD94E211B791D6E003C8481 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BCD94E221B791D6E003C8481 /* Remote_For_Kodi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Remote_For_Kodi.entitlements; sourceTree = "<group>"; };
 		BCD94E241B791D6E003C8481 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		BCD94E261B791D6E003C8481 /* TodayViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TodayViewController.h; sourceTree = "<group>"; };
 		BCD94E271B791D6E003C8481 /* TodayViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TodayViewController.m; sourceTree = "<group>"; };
@@ -207,7 +206,6 @@
 			isa = PBXGroup;
 			children = (
 				BCD94E381B791E8E003C8481 /* KodiRemoteTWMedia.xcassets */,
-				BCD94E321B791D78003C8481 /* Remote For Kodi.entitlements */,
 				BCD94E261B791D6E003C8481 /* TodayViewController.h */,
 				BCD94E271B791D6E003C8481 /* TodayViewController.m */,
 				BCD94E291B791D6E003C8481 /* TodayViewController.xib */,
@@ -222,7 +220,7 @@
 			isa = PBXGroup;
 			children = (
 				BCD94E211B791D6E003C8481 /* Info.plist */,
-				BCD94E221B791D6E003C8481 /* Remote_For_Kodi.entitlements */,
+				BCD94E321B791D78003C8481 /* Remote For Kodi.entitlements */,
 				BCD94E231B791D6E003C8481 /* InfoPlist.strings */,
 			);
 			name = "Supporting Files";

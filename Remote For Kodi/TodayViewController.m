@@ -33,11 +33,11 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR);
     /** //Kodi's address on the network */
     NSString           *p_hostAddress;
     /** Kodi's http port */
-    NSString           *p_port;                             
+    NSString           *p_port;
     /** Kodi user's username */
-    NSString           *p_username;                         
+    NSString           *p_username;
     /** Kodi user's password */
-    NSString           *p_password;                         
+    NSString           *p_password;
     /** TRUE if an update of the player has been scheduled (in order to update the volume, player progress, etc ...) */
     BOOL                p_isHeartbeatOn;
     /** Curent kodi player's id */
@@ -47,7 +47,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR);
     /** Date at the last add up in the current playlist */
     NSDate             *p_lastPlaylistAddDate;
     /** Date at the last request */
-    NSDate             *p_lastRequestDate;                  
+    NSDate             *p_lastRequestDate;
     /** String of the last request sent */
     NSString           *p_lastRequestString;
 }
@@ -280,16 +280,16 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 
 - (void)saveControlState {
     NSUserDefaults *shared = [NSUserDefaults standardUserDefaults];
-//    [shared setObject:[NSString stringWithFormat:@"%f", self.playerProgressBar.doubleValue] forKey:@"playerProgress"];
-//    [shared setObject:[NSString stringWithFormat:@"%f", self.volumeLevel.doubleValue] forKey:@"volume"];
-//    [shared setObject:@(p_keyboardBehaviour) forKey:@"keyboardBehaviour"];
+    //    [shared setObject:[NSString stringWithFormat:@"%f", self.playerProgressBar.doubleValue] forKey:@"playerProgress"];
+    //    [shared setObject:[NSString stringWithFormat:@"%f", self.volumeLevel.doubleValue] forKey:@"volume"];
+    //    [shared setObject:@(p_keyboardBehaviour) forKey:@"keyboardBehaviour"];
     [shared synchronize];
 }
 
 - (void)loadControlState {
-//    NSString *d_keyboardBehaviour = [[NSUserDefaults standardUserDefaults] objectForKey:@"keyboardBehaviour"];
-//    if(d_keyboardBehaviour != nil)
-//        p_keyboardBehaviour = [d_keyboardBehaviour intValue];
+    //    NSString *d_keyboardBehaviour = [[NSUserDefaults standardUserDefaults] objectForKey:@"keyboardBehaviour"];
+    //    if(d_keyboardBehaviour != nil)
+    //        p_keyboardBehaviour = [d_keyboardBehaviour intValue];
 }
 
 - (void)setPlayerHeartbeat:(BOOL)status {
@@ -320,7 +320,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
     [self connectToKodi];
     [self ui_enableInterface:NO];
     if(p_hostAddress == nil)
-       [self widgetDidBeginEditing];
+        [self widgetDidBeginEditing];
 }
 
 - (void)viewDidDisappear {
@@ -351,8 +351,8 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
     [self.xib_settingsView setHidden:YES];
     [self.view.window makeFirstResponder:self.view];
     [self reset];
-//    [self connectToKodi];
-//    [self setPlayerHeartbeat:YES];
+    //    [self connectToKodi];
+    //    [self setPlayerHeartbeat:YES];
 }
 
 - (void)widgetPerformUpdateWithCompletionHandler:(void (^)(NCUpdateResult result))completionHandler {
@@ -427,9 +427,9 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 - (void)webSocket:(SRWebSocket *)webSocket didReceiveMessage:(id)data {
     NSError *parseError = nil;
     NSArray *message = [NSJSONSerialization
-                             JSONObjectWithData:[data dataUsingEncoding:NSUTF8StringEncoding]
-                             options:0
-                             error:&parseError];
+                        JSONObjectWithData:[data dataUsingEncoding:NSUTF8StringEncoding]
+                        options:0
+                        error:&parseError];
     if (!message)
         NSLog(@"JSON parsing error: %@", parseError);
     else {
@@ -719,7 +719,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 
 - (void)sendPlayerMarkAsWatched {
     [self sendInputExecuteActionContextMenu];
-    for (int i = 0; i<4; i++) {
+    for (int i = 0; i<5; i++) {
         [self sendInputDown];
     }
     [self sendInputSelect];
@@ -876,7 +876,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 /***** Handling functions to Kodi's messages *****/
 
 - (void)handleError {
-//    [self handlePlayerOnStop:nil];
+    //    [self handlePlayerOnStop:nil];
 }
 
 - (void)handleApplicationVolume:(NSArray*)params {
@@ -1067,56 +1067,59 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 
 - (void)ui_init {
     self.preferredContentSize = CGSizeMake(0, 93);
+    
     p_keyboardBehaviour = COMMAND;
     self.widgetAllowsEditing = YES;
-    [self.xib_inputTextToKodiTextField setDelegate:self];
-    [self.xib_hostAddressTextField setDelegate:self];
-    [self.xib_portTextField setDelegate:self];
-    [self.xib_userTextField setDelegate:self];
-    [self.xib_passwordTextField setDelegate:self];
+    
+    [self.xib_inputTextToKodiTextField  setDelegate:self];
+    [self.xib_hostAddressTextField      setDelegate:self];
+    [self.xib_portTextField             setDelegate:self];
+    [self.xib_userTextField             setDelegate:self];
+    [self.xib_passwordTextField         setDelegate:self];
+    
     [self.view.window makeFirstResponder:self.view];
 }
 
 - (void)ui_enableInterface:(BOOL) enabled {
     //elements to be enabled only when playing a video
-    if(!enabled) {
-        [self.xib_playerProgressBarSlider setEnabled:NO];
+    if(!enabled)
         [self.xib_playerProgressBarSlider setDoubleValue:0.0];
-        [self.xib_speedLevelSlider setEnabled:NO];
-        [self.xib_playButton setEnabled:NO];
-        [self.xib_stopButton setEnabled:NO];
-        [self.xib_forwardButton setEnabled:NO];
-    }
-    [self.xib_goDownButton setEnabled:enabled];
-    [self.xib_goLeftButton setEnabled:enabled];
-    [self.xib_goRightButton setEnabled:enabled];
-    [self.xib_goUpButton setEnabled:enabled];
-    [self.xib_okButton setEnabled:enabled];
-    [self.xib_menuButton setEnabled:enabled];
-    [self.xib_infoButton setEnabled:enabled];
-    [self.xib_backButton setEnabled:enabled];
-    [self.xib_homeButton setEnabled:enabled];
-    [self.xib_volumeLevelSlider setEnabled:enabled];
+    [self.xib_playerProgressBarSlider   setEnabled:enabled];
+    [self.xib_speedLevelSlider          setEnabled:enabled];
+    [self.xib_playButton                setEnabled:enabled];
+    [self.xib_stopButton                setEnabled:enabled];
+    [self.xib_forwardButton             setEnabled:enabled];
+    [self.xib_goDownButton              setEnabled:enabled];
+    [self.xib_goLeftButton              setEnabled:enabled];
+    [self.xib_goRightButton             setEnabled:enabled];
+    [self.xib_goUpButton                setEnabled:enabled];
+    [self.xib_okButton                  setEnabled:enabled];
+    [self.xib_menuButton                setEnabled:enabled];
+    [self.xib_infoButton                setEnabled:enabled];
+    [self.xib_backButton                setEnabled:enabled];
+    [self.xib_homeButton                setEnabled:enabled];
+    [self.xib_volumeLevelSlider         setEnabled:enabled];
 }
 
 - (void)ui_enableNavigationControls:(BOOL) enabled {
-    [self.xib_goDownButton setEnabled:enabled];
-    [self.xib_goLeftButton setEnabled:enabled];
-    [self.xib_goRightButton setEnabled:enabled];
-    [self.xib_goUpButton setEnabled:enabled];
+    [self.xib_goDownButton              setEnabled:enabled];
+    [self.xib_goLeftButton              setEnabled:enabled];
+    [self.xib_goRightButton             setEnabled:enabled];
+    [self.xib_goUpButton                setEnabled:enabled];
 }
 
 - (void)ui_enablePlayerControls:(BOOL) enabled {
-    [self.xib_playerProgressBarSlider setEnabled:enabled];
-    if(!enabled) [self.xib_playerProgressBarSlider setDoubleValue:0.0];
-    [self.xib_speedLevelSlider setEnabled:enabled];
-    [self.xib_playButton setEnabled:enabled];
-    [self.xib_stopButton setEnabled:enabled];
-    [self.xib_forwardButton setEnabled:enabled];
+    if(!enabled)
+        [self.xib_playerProgressBarSlider setDoubleValue:0.0];
+    [self.xib_playerProgressBarSlider   setEnabled:enabled];
+    [self.xib_speedLevelSlider          setEnabled:enabled];
+    //  [self.xib_playButton                setEnabled:enabled];
+    //  [self.xib_stopButton                setEnabled:enabled];
+    //  [self.xib_forwardButton             setEnabled:enabled];
     if(enabled)
-        [self.xib_playerProgressTimeTitle setTextColor:[NSColor controlLightHighlightColor]];
+        [self.xib_playerProgressTimeTitle setAlphaValue:1.0];
     else {
-        [self.xib_playerProgressTimeTitle setTextColor:[NSColor quaternaryLabelColor]];
+        [self.xib_playerProgressTimeTitle setAlphaValue:0.5];
         [self.xib_playerProgressTimeTitle setStringValue:@"0:00:00/0:00:00"];
     }
 }
@@ -1193,11 +1196,11 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
         [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. missing item label", itemPosition]];
     } else {
         [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
-//        NSRange range = [itemLabel rangeOfString:@"[0-9]+. .*" options:NSRegularExpressionSearch];
-//        if(range.location != NSNotFound)
-//            [self.xib_playlistComboBox addItemWithTitle:itemLabel];
-//        else
-//            [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
+        //        NSRange range = [itemLabel rangeOfString:@"[0-9]+. .*" options:NSRegularExpressionSearch];
+        //        if(range.location != NSNotFound)
+        //            [self.xib_playlistComboBox addItemWithTitle:itemLabel];
+        //        else
+        //            [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
     }
 }
 
@@ -1264,7 +1267,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 
 - (IBAction)onLeftButtonPressed:(id)sender {
     [self sendInputLeft];
-
+    
     [self.xib_goLeftButton highlight:YES];
     [NSTimer scheduledTimerWithTimeInterval:0.1
                                      target:self.xib_goLeftButton
@@ -1380,7 +1383,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 
 - (IBAction)onSpeedSliderChange:(id)sender {
     NSEvent *event = [[NSApplication sharedApplication] currentEvent];
-    BOOL endingDrag = event.type == NSLeftMouseUp;
+    BOOL endingDrag = event.type == NSEventTypeLeftMouseUp;
     int lc_speed = self.xib_speedLevelSlider.intValue;
     if( lc_speed != 0 && !endingDrag)
         [self sendPlayerSetSpeed:lc_speed];
@@ -1392,7 +1395,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 
 - (IBAction)onProgressSliderChange:(id)sender {
     NSEvent *event = [[NSApplication sharedApplication] currentEvent];
-    if(event.type == NSLeftMouseDragged) {
+    if(event.type == NSEventTypeLeftMouseDragged) {
         long lc_itemDurationH = self.playerItemTotalTime.hours;
         long lc_itemDurationM = self.playerItemTotalTime.minutes;
         long lc_itemDurationS = self.playerItemTotalTime.seconds;
@@ -1412,7 +1415,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
                                                           lc_itemDurationS]];
     }
     
-    if(event.type == NSLeftMouseUp)
+    if(event.type == NSEventTypeLeftMouseUp)
         [self sendPlayerSeek:self.xib_playerProgressBarSlider.intValue];
 }
 
@@ -1448,8 +1451,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
     if([self.view isHidden])
         return;
     else
-    if([keyPath isEqualToString: NSStringFromSelector(@selector(isInitiated)) ] &&
-       ((TodayViewController*)object).isInitiated )
+    if([keyPath isEqualToString: NSStringFromSelector(@selector(isInitiated)) ] && ((TodayViewController*)object).isInitiated )
         [self ui_init];
     else
     if([keyPath isEqualToString: NSStringFromSelector(@selector(isConnected)) ])
@@ -1481,19 +1483,19 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
     else
     if([keyPath isEqualToString: NSStringFromSelector(@selector(isPlayerOn))])
         [self ui_enablePlayerControls:self.isPlayerOn];
-//    else
-//    if([keyPath isEqualToString: NSStringFromSelector(@selector(isPlaylistOn))])
-//        [self ui_enablePlaylistControls:self.isPlaylistOn];
     else
     if([keyPath isEqualToString: NSStringFromSelector(@selector(isPlaying))])
         [self ui_updatePlayerPlayPauseButton:self.isPlaying];
+//    else
+//    if([keyPath isEqualToString: NSStringFromSelector(@selector(isPlaylistOn))])
+//        [self ui_enablePlaylistControls:self.isPlaylistOn];
 }
 
 
 /***** Keyboard inputs *****/
 
 - (void)keyDown:(NSEvent *)event {
-//    NSLog(@"Key pressed : %u", event.keyCode);
+    //    NSLog(@"Key pressed : %u", event.keyCode);
     switch (p_keyboardBehaviour)
     {
         case TEXT_INPUT:
@@ -1511,7 +1513,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
     switch (event.keyCode)
     {
         case 1: // s key
-            if(event.modifierFlags & NSShiftKeyMask)
+            if(event.modifierFlags & NSEventModifierFlagShift)
                 [self onForwardButtonPressed:self];
             else
                 [self onStopButtonPressed:self];
@@ -1538,7 +1540,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
             [self sendVideoLibraryScan];
             break;
         case 34:  // i key
-           [self onInfoButtonPressed:self];
+            [self onInfoButtonPressed:self];
             break;
         case 35:  // p key
             [self sendPlayerGoToPrevious];
@@ -1547,7 +1549,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
             [self onOkButtonPressed:self];
             break;
         case 43:  // semicolon key
-            if(event.modifierFlags & NSCommandKeyMask)
+            if(event.modifierFlags & NSEventModifierFlagCommand)
                 [self widgetDidBeginEditing];
             break;
         case 45:  // n key
@@ -1557,11 +1559,11 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
             [self onMenuButtonPressed:self];
             break;
         case 15:  // r key
-            if(event.modifierFlags & NSShiftKeyMask)
+            if(event.modifierFlags & NSEventModifierFlagShift)
                 [self sendSystemReboot];
             else
-            if(event.modifierFlags & NSCommandKeyMask)
-                [self reset];
+                if(event.modifierFlags & NSEventModifierFlagCommand)
+                    [self reset];
             break;
         case 49:  // space key
             [self onPlayPauseButtonPressed:self];
@@ -1570,25 +1572,25 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
             [self onBackButtonPressed:self];
             break;
         case 123: // left key
-            if(event.modifierFlags & NSShiftKeyMask)
+            if(event.modifierFlags & NSEventModifierFlagShift)
                 [self sendPlayerSeekBackward];
             else
                 [self onLeftButtonPressed:self];
             break;
         case 124: // right key
-            if(event.modifierFlags & NSShiftKeyMask)
+            if(event.modifierFlags & NSEventModifierFlagShift)
                 [self sendPlayerSeekForward];
             else
                 [self onRightButtonPressed:self];
             break;
         case 125: // down key
-            if(event.modifierFlags & NSShiftKeyMask)
+            if(event.modifierFlags & NSEventModifierFlagShift)
                 [self sendApplicationSetVolumeDecrement];
             else
                 [self onDownButtonPressed:self];
             break;
         case 126: // up key
-            if(event.modifierFlags & NSShiftKeyMask)
+            if(event.modifierFlags & NSEventModifierFlagShift)
                 [self sendApplicationSetVolumeIncrement];
             else
                 [self onUpButtonPressed:self];
@@ -1598,7 +1600,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
             break;
             
         case 9:   // v key
-            if(event.modifierFlags & NSCommandKeyMask) {
+            if(event.modifierFlags & NSEventModifierFlagCommand) {
                 NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
                 NSString* pastedString = [pasteboard  stringForType:NSPasteboardTypeString];
                 [self handleStreamLink:pastedString];
@@ -1610,7 +1612,7 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
 }
 
 - (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector {
-
+    
     if([control isEqual:self.xib_inputTextToKodiTextField]) {
         if (commandSelector == @selector(deleteBackward:)) {
             if(self.xib_inputTextToKodiTextField.stringValue.length == 0) {
@@ -1678,19 +1680,19 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
             }
         }
     }
-//    else if([link containsString:@"dailymotion.com/"]) {
-//        NSRange videoArgPos = [link rangeOfString:@"video/"];
-//        if(videoArgPos.location != NSNotFound) {
-//            @try {
-//                videoId = [link substringFromIndex:videoArgPos.location+6];
-//                plugginSpecificCommand = [NSString stringWithFormat:@"plugin://plugin.video.dailymotion/?action=play_video&videoid=%@", videoId];
-//                
-//            }
-//            @catch (NSException *exception) {
-//                NSLog(@"Non suitable link");
-//            }
-//        }
-//    }
+    else if([link containsString:@"dailymotion.com/"]) {
+        NSRange videoArgPos = [link rangeOfString:@"video/"];
+        if(videoArgPos.location != NSNotFound) {
+            @try {
+                videoId = [link substringFromIndex:videoArgPos.location+6];
+                plugginSpecificCommand = [NSString stringWithFormat:@"plugin://plugin.video.dailymotion/?action=play_video&videoid=%@", videoId];
+                
+            }
+            @catch (NSException *exception) {
+                NSLog(@"Non suitable link");
+            }
+        }
+    }
     
     if(plugginSpecificCommand != nil) {
         if(p_playerID != 1) { //if Kodi is not playing a video

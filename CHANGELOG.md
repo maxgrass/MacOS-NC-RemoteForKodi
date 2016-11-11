@@ -1,5 +1,9 @@
 #Change log
 
+##Version 2.1 :
+- Extension version upgraded to 2.0 (white background)
+- Images updated to contrast well with the white background
+
 ##Version 2.0 :
 - UI adapted to OSX 10.12 Sierra
 - Refactoring of the code

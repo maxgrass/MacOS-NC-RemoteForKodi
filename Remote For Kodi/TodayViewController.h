@@ -18,7 +18,7 @@
 #import <NotificationCenter/NotificationCenter.h>
 #import <SocketRocket/SRWebSocket.h>
 
-#define VERSION_NB "2.0"
+#define VERSION_NB "2.1"
 #define DEFAULT_ADDRESS "192.168.0.100"
 #define DEFAULT_PORT "9090"
 #define DEFAULT_USERNAME ""
