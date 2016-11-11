@@ -12,9 +12,9 @@
 ##Screenshots
 <p>
   v2 :<br/>
-  <a href="http://i.imgur.com/9MK2v3Y.png">Main view - when something is playing and more items are queued in the playlist</a><br/>
-  <a href="http://i.imgur.com/vwjCxkn.png">Main view - when nothing is playing</a><br/>
-  <a href="http://i.imgur.com/kgys8or.png">Settings view</a><br/> 
+  <a href="http://i.imgur.com/MNB65Al.png">Main view - when something is playing and more items are queued in the playlist</a><br/>
+  <a href="http://i.imgur.com/g2t4aZy.png">Main view - when nothing is playing</a><br/>
+  <a href="http://i.imgur.com/HWN7rwt.png">Settings view</a><br/> 
   <br/>
   v1 :<br/>
   <a href="https://i.imgur.com/FBv9s7r.png">Main view - when something is playing and more items are queued in the playlist</a><br/>
