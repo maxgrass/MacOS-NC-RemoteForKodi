@@ -1195,12 +1195,12 @@ typedef NS_ENUM(NSInteger, KEYBOARD_BEHAVIOR) {
     if(!itemLabel || [itemLabel isEqualToString:@""]) {
         [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. missing item label", itemPosition]];
     } else {
-        [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
-        //        NSRange range = [itemLabel rangeOfString:@"[0-9]+. .*" options:NSRegularExpressionSearch];
-        //        if(range.location != NSNotFound)
-        //            [self.xib_playlistComboBox addItemWithTitle:itemLabel];
-        //        else
-        //            [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
+        //Prevent double numbering
+        NSRange range = [itemLabel rangeOfString:@"[0-9]+. .*" options:NSRegularExpressionSearch];
+        if(range.location != NSNotFound)
+            [self.xib_playlistComboBox addItemWithTitle:itemLabel];
+        else
+            [self.xib_playlistComboBox addItemWithTitle:[NSString stringWithFormat:@"%02ld. %@", itemPosition, itemLabel]];
     }
 }
 
